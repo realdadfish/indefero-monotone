@@ -3,15 +3,12 @@
 {block body}
 
 <p>{blocktrans}The team behind {$project} is using
-the <strong>git</strong> software to manage the source
+the <strong>monotone</strong> software to manage the source
 code.{/blocktrans}</p>
 
 <h3>{trans 'Command-Line Access'}</h3>
 
-<p><kbd>git clone {$project.getSourceAccessUrl($user)}</kbd></p>
-
-{aurl 'url', 'IDF_Views_User::myAccount'}
-<p>{blocktrans}You may need to <a href="{$url}">provide your SSH key</a>. The synchronization of your SSH key can take a couple of minutes. You can learn more about <a href="http://www.google.com/search?q=public+ssh+key+authentication">SSH key authentification</a>.{/blocktrans}</p>
+<p><kbd>mtn clone {$project.getSourceAccessUrl()}</kbd></p>
 
 {if $isOwner or $isMember}
 <h3>{trans 'First Commit'}</h3>
@@ -19,11 +16,9 @@ code.{/blocktrans}</p>
 <p>{blocktrans}To make a first commit in the repository, perform the following steps:{/blocktrans}</p>
 
 <pre>
-git init
-git add .
-git commit -m "initial import"
-git remote add origin {$project.getWriteRemoteAccessUrl($url)}
-git push origin master
+mtn add -R .
+mtn commit -m "initial import"
+mtn push {$project.getSourceAccessUrl()}
 </pre>
 
 {/if}

@@ -44,12 +44,12 @@ class IDF_Views_Project
         if ($request->rights['hasDownloadsAccess']) {
             $tags = IDF_Views_Download::getDownloadTags($prj);
             // the first tag is the featured, the last is the deprecated.
-            $downloads = $tags[0]->get_idf_upload_list(); 
+            $downloads = $tags[0]->get_idf_upload_list();
         }
         $pages = array();
         if ($request->rights['hasWikiAccess']) {
             $tags = IDF_Views_Wiki::getWikiTags($prj);
-            $pages = $tags[0]->get_idf_wikipage_list(); 
+            $pages = $tags[0]->get_idf_wikipage_list();
         }
         return Pluf_Shortcuts_RenderToResponse('idf/project/home.html',
                                                array(
@@ -100,7 +100,7 @@ class IDF_Views_Project
             $rights[] = '\'IDF_Dummy\'';
         }
         $sql = sprintf('model_class IN (%s)', implode(', ', $rights));
-        $pag->forced_where = new Pluf_SQL('project=%s AND '.$sql, 
+        $pag->forced_where = new Pluf_SQL('project=%s AND '.$sql,
                                           array($prj->id));
         $pag->sort_order = array('creation_dtime', 'ASC');
         $pag->sort_reverse_order = array('creation_dtime');
@@ -117,16 +117,16 @@ class IDF_Views_Project
         if ($request->rights['hasDownloadsAccess']) {
             $tags = IDF_Views_Download::getDownloadTags($prj);
             // the first tag is the featured, the last is the deprecated.
-            $downloads = $tags[0]->get_idf_upload_list(); 
+            $downloads = $tags[0]->get_idf_upload_list();
         }
         $pages = array();
         if ($request->rights['hasWikiAccess']) {
             $tags = IDF_Views_Wiki::getWikiTags($prj);
-            $pages = $tags[0]->get_idf_wikipage_list(); 
+            $pages = $tags[0]->get_idf_wikipage_list();
         }
         if (!$request->user->isAnonymous() and $prj->isRestricted()) {
             $feedurl = Pluf_HTTP_URL_urlForView('idf_project_timeline_feed_auth',
-                                                array($prj->shortname, 
+                                                array($prj->shortname,
                                                       IDF_Precondition::genFeedToken($prj, $request->user)));
         } else {
             $feedurl = Pluf_HTTP_URL_urlForView('idf_project_timeline_feed',
@@ -188,7 +188,7 @@ class IDF_Views_Project
                         'nb' => 20,
                         );
         $items = Pluf::factory('IDF_Timeline')->getList($params);
-        $set = new Pluf_Model_Set($items, 
+        $set = new Pluf_Model_Set($items,
                                   array('public_dtime' => 'public_dtime'));
         $out = array();
         foreach ($set as $item) {
@@ -207,7 +207,7 @@ class IDF_Views_Project
         $feedurl = Pluf::f('url_base').Pluf::f('idf_base').$request->query;
         $viewurl = Pluf_HTTP_URL_urlForView('IDF_Views_Project::timeline',
                                             array($prj->shortname));
-        $context = new Pluf_Template_Context_Request($request, 
+        $context = new Pluf_Template_Context_Request($request,
                                                      array('body' => $out,
                                                            'date' => $date,
                                                            'title' => $title,
@@ -235,7 +235,7 @@ class IDF_Views_Project
             if ($form->isValid()) {
                 $prj = $form->save();
                 $request->user->setMessage(__('The project has been updated.'));
-                $url = Pluf_HTTP_URL_urlForView('IDF_Views_Project::admin', 
+                $url = Pluf_HTTP_URL_urlForView('IDF_Views_Project::admin',
                                                 array($prj->shortname));
                 return new Pluf_HTTP_Response_Redirect($url);
             }
@@ -445,7 +445,7 @@ class IDF_Views_Project
         } else {
             $params = array();
             $keys = array('downloads_access_rights', 'source_access_rights',
-                          'issues_access_rights', 'review_access_rights', 
+                          'issues_access_rights', 'review_access_rights',
                           'wiki_access_rights',
                           'downloads_notification_email',
                           'review_notification_email',
@@ -519,6 +519,7 @@ class IDF_Views_Project
                          'git' => __('git'),
                          'svn' => __('Subversion'),
                          'mercurial' => __('mercurial'),
+                         'mtn' => __('monotone'),
                          );
         $repository_type = $options[$scm];
         return Pluf_Shortcuts_RenderToResponse('idf/admin/source.html',

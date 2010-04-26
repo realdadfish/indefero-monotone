@@ -52,6 +52,13 @@
 {$form.f.svn_password|unsafe}
 </td>
 </tr>
+<tr class="mtn-form">
+<th>{$form.f.mtn_master_branch.labelTag}:</th>
+<td>{if $form.f.mtn_master_branch.errors}{$form.f.mtn_master_branch.fieldErrors}{/if}
+{$form.f.mtn_master_branch|unsafe}<br />
+<span class="helptext">{$form.f.mtn_master_branch.help_text}</span>
+</td>
+</tr>
 <tr>
 <th><strong>{$form.f.owners.labelTag}:</strong></th>
 <td>
@@ -76,7 +83,7 @@
 <tr>
 <td>&nbsp;</td>
 <td>
-<input type="submit" value="{trans 'Create Project'}" name="submit" /> 
+<input type="submit" value="{trans 'Create Project'}" name="submit" />
 </td>
 </tr>
 </table>
@@ -112,12 +119,22 @@ $(document).ready(function() {
     if ($("#id_scm option:selected").val() != "svn") {
         $(".svn-form").hide();
     }
+    // Hide if not mtn
+    if ($("#id_scm option:selected").val() != "mtn") {
+        $(".mtn-form").hide();
+    }
     $("#id_scm").change(function () {
         if ($("#id_scm option:selected").val() == "svn") {
             $(".svn-form").show();
         } else {
             $(".svn-form").hide();
         }
+        if ($("#id_scm option:selected").val() == "mtn") {
+            $(".mtn-form").show();
+        } else {
+            $(".mtn-form").hide();
+        }
+
     });
 });
 </script>
