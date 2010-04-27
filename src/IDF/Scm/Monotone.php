@@ -366,11 +366,15 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     public static function getAnonymousAccessUrl($project)
     {
+        $conf = $project->getConf();
+        if (false === ($branch = $conf->getVal('mtn_master_branch', false))
+            || empty($branch)) {
+            $branch = "*";
+        }
         return sprintf(
             Pluf::f('mtn_remote_url'),
             $project->shortname,
-            Pluf::f('mtn_branch_prefix'),
-            $project->shortname
+            $branch
         );
     }
 

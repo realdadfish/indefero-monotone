@@ -76,8 +76,7 @@ $cfg['svn_remote_url'] = 'http://localhost/svn/%s';
 # Same as for git, you can have multiple repositories, one for each
 # project or a single one for all the projects.
 $cfg['mtn_repositories'] = '/home/mtn/repositories/%s.mtn';
-$cfg['mtn_branch_prefix'] = 'com.indefero.projects.';
-$cfg['mtn_remote_url'] = 'mtn://localhost/~%s/%s%s';
+$cfg['mtn_remote_url'] = 'mtn://localhost/~%s/%s';
 
 # Mercurial repositories path
 #$cfg['mercurial_repositories'] = '/home/mercurial/repositories/%s';
