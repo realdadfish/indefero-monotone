@@ -16,6 +16,8 @@ code.{/blocktrans}</p>
 <p>{blocktrans}To make a first commit in the repository, perform the following steps:{/blocktrans}</p>
 
 <pre>
+mtn db init -d project.mtn
+mtn setup -d project.mtn -b {$project.getConf().getVal('mtn_master_branch', 'your-branch')} .
 mtn add -R .
 mtn commit -m "initial import"
 mtn push {$project.getSourceAccessUrl()}
