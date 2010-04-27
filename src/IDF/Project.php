@@ -436,7 +436,7 @@ class IDF_Project extends Pluf_Model
                        'git' => 'master',
                        'svn' => 'HEAD',
                        'mercurial' => 'tip',
-                       'mtn' => 'h:',
+                       'mtn' => 'h:'.$conf->getVal('mtn_master_branch', '*'),
                        );
         $scm = $conf->getVal('scm', 'git');
         return $roots[$scm];
