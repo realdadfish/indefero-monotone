@@ -27,7 +27,7 @@
  */
 class IDF_Scm_Monotone extends IDF_Scm
 {
-    public $mediumtree_fmt = 'commit %H%nAuthor: %an <%ae>%nTree: %T%nDate: %ai%n%n%s%n%n%b';
+    public static $MIN_INTERFACE_VERSION = 12.0;
 
     /* ============================================== *
      *                                                *
@@ -56,12 +56,19 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     public function isAvailable()
     {
+        $out = array();
         try {
-            $branches = $this->getBranches();
+            $cmd = Pluf::f('idf_exec_cmd_prefix', '')
+                .sprintf("%s -d %s automate interface_version",
+                         Pluf::f('mtn_path', 'mtn'),
+                         escapeshellarg($this->repo));
+            self::exec('IDF_Scm_Monotone::isAvailable',
+                   $cmd, $out, $return);
         } catch (IDF_Scm_Exception $e) {
             return false;
         }
-        return (count($branches) > 0);
+
+        return count($out) > 0 && floatval($out[0]) >= self::$MIN_INTERFACE_VERSION;
     }
 
     public function getBranches()
@@ -112,7 +119,7 @@ class IDF_Scm_Monotone extends IDF_Scm
      * @param string $selector
      * @return array
      */
-    private static function _resolveSelector($selector)
+    private function _resolveSelector($selector)
     {
         $cmd = Pluf::f('idf_exec_cmd_prefix', '')
             .sprintf("%s -d %s automate select %s",
@@ -132,6 +139,9 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     private static function _parseBasicIO($in)
     {
+        if (substr($in, -1) != "\n")
+            $in .= "\n";
+
         $pos = 0;
         $stanzas = array();
 
@@ -192,39 +202,92 @@ class IDF_Scm_Monotone extends IDF_Scm
         return $stanzas;
     }
 
-    private static function _getUniqueCertValuesFor($revs, $certName)
+    private function _getCerts($rev)
     {
-        $certValues = array();
-        foreach ($revs as $rev)
+        static $certCache = array();
+
+        if (!array_key_exists($rev, $certCache))
         {
             $cmd = Pluf::f('idf_exec_cmd_prefix', '')
                 .sprintf("%s -d %s automate certs %s",
                          Pluf::f('mtn_path', 'mtn'),
                          escapeshellarg($this->repo),
                          escapeshellarg($rev));
-            self::exec('IDF_Scm_Monotone::inBranches',
+            self::exec('IDF_Scm_Monotone::_getCerts',
                        $cmd, $out, $return);
 
-            $stanzas = self::_parseBasicIO(implode('\n', $out));
+            $stanzas = self::_parseBasicIO(implode("\n", $out));
+            $certs = array();
             foreach ($stanzas as $stanza)
             {
+                $certname = null;
                 foreach ($stanza as $stanzaline)
                 {
                     // luckily, name always comes before value
-                    if ($stanzaline['key'] == "name" &&
-                        $stanzaline['values'][0] != $certName)
+                    if ($stanzaline['key'] == "name")
                     {
-                        break;
+                        $certname = $stanzaline['values'][0];
+                        continue;
                     }
+
                     if ($stanzaline['key'] == "value")
                     {
-                        $certValues[] = $stanzaline['values'][0];
+                        if (!array_key_exists($certname, $certs))
+                        {
+                            $certs[$certname] = array();
+                        }
+
+                        $certs[$certname][] = $stanzaline['values'][0];
                         break;
                     }
                 }
             }
+            $certCache[$rev] = $certs;
+        }
+
+        return $certCache[$rev];
+    }
+
+    private function _getUniqueCertValuesFor($revs, $certName)
+    {
+        $certValues = array();
+        foreach ($revs as $rev)
+        {
+            $certs = $this->_getCerts($rev);
+            if (!array_key_exists($certName, $certs))
+                continue;
+
+            $certValues = array_merge($certValues, $certs[$certName]);
         }
         return array_unique($certValues);
+    }
+
+    private function _getLastChangeFor($file, $startrev)
+    {
+        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
+            .sprintf("%s -d %s automate get_content_changed %s %s",
+                     Pluf::f('mtn_path', 'mtn'),
+                     escapeshellarg($this->repo),
+                     escapeshellarg($startrev),
+                     escapeshellarg($file));
+        self::exec('IDF_Scm_Monotone::_getLastChangeFor',
+                   $cmd, $out, $return);
+
+        $stanzas = self::_parseBasicIO(implode("\n", $out));
+
+        // FIXME: we only care about the first returned content mark
+        // everything else seem to be very rare cases
+        foreach ($stanzas as $stanza)
+        {
+            foreach ($stanza as $stanzaline)
+            {
+                if ($stanzaline['key'] == "content_mark")
+                {
+                    return $stanzaline['hash'];
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -232,9 +295,9 @@ class IDF_Scm_Monotone extends IDF_Scm
      **/
     public function inBranches($commit, $path)
     {
-        $revs = self::_resolveSelector($commit);
+        $revs = $this->_resolveSelector($commit);
         if (count($revs) == 0) return array();
-        return self::_getUniqueCertValuesFor($revs, "branch");
+        return $this->_getUniqueCertValuesFor($revs, "branch");
     }
 
     /**
@@ -252,14 +315,21 @@ class IDF_Scm_Monotone extends IDF_Scm
         self::exec('IDF_Scm_Monotone::getTags', $cmd, $out, $return);
 
         $tags = array();
-        $stanzas = self::parseBasicIO(implode('\n', $out));
+        $stanzas = self::_parseBasicIO(implode("\n", $out));
         foreach ($stanzas as $stanza)
         {
+            $tagname = null;
             foreach ($stanza as $stanzaline)
             {
+                // revision comes directly after the tag stanza
                 if ($stanzaline['key'] == "tag")
                 {
-                    $tags[] = $stanzaline['values'][0];
+                    $tagname = $stanzaline['values'][0];
+                    continue;
+                }
+                if ($stanzaline['key'] == "revision")
+                {
+                    $tags[$stanzaline['hash']] = $tagname;
                     break;
                 }
             }
@@ -274,9 +344,9 @@ class IDF_Scm_Monotone extends IDF_Scm
      **/
     public function inTags($commit, $path)
     {
-        $revs = self::_resolveSelector($commit);
+        $revs = $this->_resolveSelector($commit);
         if (count($revs) == 0) return array();
-        return self::_getUniqueCertValuesFor($revs, "tag");
+        return $this->_getUniqueCertValuesFor($revs, "tag");
     }
 
     /**
@@ -284,13 +354,10 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public function getTree($commit, $folder='/', $branch=null)
     {
-        $revs = self::_resolveSelector($commit);
-        if ($revs != 1)
+        $revs = $this->_resolveSelector($commit);
+        if (count($revs) == 0)
         {
-            throw new Exception(sprintf(
-                __('Commit %1$s does not (uniquely) identify a revision.'),
-                $commit
-            ));
+            return array();
         }
 
         $cmd = Pluf::f('idf_exec_cmd_prefix', '')
@@ -301,7 +368,7 @@ class IDF_Scm_Monotone extends IDF_Scm
         self::exec('IDF_Scm_Monotone::getTree', $cmd, $out, $return);
 
         $files = array();
-        $stanzas = self::parseBasicIO(implode('\n', $out));
+        $stanzas = self::_parseBasicIO(implode("\n", $out));
         $folder = $folder == '/' || empty($folder) ? '' : $folder.'/';
 
         foreach ($stanzas as $stanza)
@@ -319,22 +386,33 @@ class IDF_Scm_Monotone extends IDF_Scm
             $file['efullpath'] = self::smartEncode($path);
 
             if ($stanza[0]['key'] == "dir")
-                $file['type'] == "tree";
-            else
-                $file['type'] == "blob";
-
-            /*
-            $file['date'] = gmdate('Y-m-d H:i:s',
-                                   strtotime((string) $entry->commit->date));
-            $file['rev'] = (string) $entry->commit['revision'];
-            $file['log'] = $this->getCommitMessage($file['rev']);
-            // Get the size if the type is blob
-            if ($file['type'] == 'blob') {
-                $file['size'] = (string) $entry->size;
+            {
+                $file['type'] = "tree";
+                $file['size'] = 0;
             }
-            $file['author'] = (string) $entry->commit->author;
-            */
-            $file['perm'] = '';
+            else
+            {
+                $file['type'] = "blob";
+                $file['hash'] = $stanza[1]['hash'];
+                $file['size'] = strlen($this->getFile((object)$file));
+            }
+
+            $rev = $this->_getLastChangeFor($file['fullpath'], $revs[0]);
+            if ($rev !== null)
+            {
+                $file['rev'] = $rev;
+                $certs = $this->_getCerts($rev);
+
+                // FIXME: this assumes that author, date and changelog are always given
+                $file['author'] = implode(", ", $certs['author']);
+
+                $dates = array();
+                foreach ($certs['date'] as $date)
+                    $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
+                $file['date'] = implode(', ', $dates);
+                $file['log'] = substr(implode("; ", $certs['changelog']), 0, 80);
+            }
+
             $files[] = (object) $file;
         }
         return $files;
@@ -349,9 +427,9 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public function findAuthor($author)
     {
-        // We extract the email.
+        // We extract anything which looks like an email.
         $match = array();
-        if (!preg_match('/<(.*)>/', $author, $match)) {
+        if (!preg_match('/([^ ]+@[^ ]+)/', $author, $match)) {
             return null;
         }
         foreach (array('email', 'login') as $what) {
@@ -364,17 +442,22 @@ class IDF_Scm_Monotone extends IDF_Scm
         return null;
     }
 
-    public static function getAnonymousAccessUrl($project)
+    private static function _getMasterBranch($project)
     {
         $conf = $project->getConf();
         if (false === ($branch = $conf->getVal('mtn_master_branch', false))
             || empty($branch)) {
             $branch = "*";
         }
+        return $branch;
+    }
+
+    public static function getAnonymousAccessUrl($project)
+    {
         return sprintf(
             Pluf::f('mtn_remote_url'),
             $project->shortname,
-            $branch
+            self::_getMasterBranch($project)
         );
     }
 
@@ -391,61 +474,14 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public static function factory($project)
     {
-        $rep = sprintf(Pluf::f('git_repositories'), $project->shortname);
+        $rep = sprintf(Pluf::f('mtn_repositories'), $project->shortname);
         return new IDF_Scm_Monotone($rep, $project);
     }
 
     public function isValidRevision($commit)
     {
-        $type = $this->testHash($commit);
-        return ('commit' == $type || 'tag' == $type);
-    }
-
-    /**
-     * Test a given object hash.
-     *
-     * @param string Object hash.
-     * @return mixed false if not valid or 'blob', 'tree', 'commit', 'tag'
-     */
-    public function testHash($hash)
-    {
-        $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' cat-file -t %s',
-                       escapeshellarg($this->repo),
-                       escapeshellarg($hash));
-        $ret = 0; $out = array();
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
-        self::exec('IDF_Scm_Monotone::testHash', $cmd, $out, $ret);
-        if ($ret != 0) return false;
-        return trim($out[0]);
-    }
-
-    /**
-     * Get the tree info.
-     *
-     * @param string Tree hash
-     * @param bool Do we recurse in subtrees (true)
-     * @param string Folder in which we want to get the info ('')
-     * @return array Array of file information.
-     */
-    public function getTreeInfo($tree, $folder='')
-    {
-        if (!in_array($this->testHash($tree), array('tree', 'commit', 'tag'))) {
-            throw new Exception(sprintf(__('Not a valid tree: %s.'), $tree));
-        }
-        $cmd_tmpl = 'GIT_DIR=%s '.Pluf::f('git_path', 'git').' ls-tree -l %s %s';
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf($cmd_tmpl, escapeshellarg($this->repo),
-                     escapeshellarg($tree), escapeshellarg($folder));
-        $out = array();
-        $res = array();
-        self::exec('IDF_Scm_Monotone::getTreeInfo', $cmd, $out);
-        foreach ($out as $line) {
-            list($perm, $type, $hash, $size, $file) = preg_split('/ |\t/', $line, 5, PREG_SPLIT_NO_EMPTY);
-            $res[] = (object) array('perm' => $perm, 'type' => $type,
-                                    'size' => $size, 'hash' => $hash,
-                                    'file' => $file);
-        }
-        return $res;
+        $revs = $this->_resolveSelector($commit);
+        return count($revs) == 1;
     }
 
     /**
@@ -455,36 +491,119 @@ class IDF_Scm_Monotone extends IDF_Scm
      * @param string Commit ('HEAD')
      * @return false Information
      */
-    public function getPathInfo($totest, $commit='HEAD')
+    public function getPathInfo($file, $commit = null)
     {
-        $cmd_tmpl = 'GIT_DIR=%s '.Pluf::f('git_path', 'git').' ls-tree -r -t -l %s';
-        $cmd = sprintf($cmd_tmpl,
-                       escapeshellarg($this->repo),
-                       escapeshellarg($commit));
-        $out = array();
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
-        self::exec('IDF_Scm_Monotone::getPathInfo', $cmd, $out);
-        foreach ($out as $line) {
-            list($perm, $type, $hash, $size, $file) = preg_split('/ |\t/', $line, 5, PREG_SPLIT_NO_EMPTY);
-            if ($totest == $file) {
-                $pathinfo = pathinfo($file);
-                return (object) array('perm' => $perm, 'type' => $type,
-                                      'size' => $size, 'hash' => $hash,
-                                      'fullpath' => $file,
-                                      'file' => $pathinfo['basename']);
+        if ($commit === null) {
+            $commit = 'h:' . self::_getMasterBranch($this->project);
+        }
+
+        $revs = $this->_resolveSelector($commit);
+        if (count($revs) == 0)
+            return false;
+
+        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
+                .sprintf("%s -d %s automate get_manifest_of %s",
+                         Pluf::f('mtn_path', 'mtn'),
+                         escapeshellarg($this->repo),
+                         escapeshellarg($revs[0]));
+        self::exec('IDF_Scm_Monotone::getPathInfo', $cmd, $out, $return);
+
+        $files = array();
+        $stanzas = self::_parseBasicIO(implode("\n", $out));
+
+        foreach ($stanzas as $stanza)
+        {
+            if ($stanza[0]['key'] == "format_version")
+                continue;
+
+            $path = $stanza[0]['values'][0];
+            if (!preg_match('#^'.$file.'$#', $path, $m))
+                continue;
+
+            $file = array();
+            $file['fullpath'] = $path;
+
+            if ($stanza[0]['key'] == "dir")
+            {
+                $file['type'] = "tree";
+                $file['hash'] = null;
+                $file['size'] = 0;
             }
+            else
+            {
+                $file['type'] = "blob";
+                $file['hash'] = $stanza[1]['hash'];
+                $file['size'] = strlen($this->getFile((object)$file));
+            }
+
+            $pathinfo = pathinfo($file['fullpath']);
+            $file['file'] = $pathinfo['basename'];
+
+            $rev = $this->_getLastChangeFor($file['fullpath'], $revs[0]);
+            if ($rev !== null)
+            {
+                $file['rev'] = $rev;
+                $certs = $this->_getCerts($rev);
+
+                // FIXME: this assumes that author, date and changelog are always given
+                $file['author'] = implode(", ", $certs['author']);
+
+                $dates = array();
+                foreach ($certs['date'] as $date)
+                    $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
+                $file['date'] = implode(', ', $dates);
+                $file['log'] = substr(implode("; ", $certs['changelog']), 0, 80);
+            }
+
+            return (object) $file;
         }
         return false;
     }
 
     public function getFile($def, $cmd_only=false)
     {
-        $cmd = sprintf(Pluf::f('idf_exec_cmd_prefix', '').
-                       'GIT_DIR=%s '.Pluf::f('git_path', 'git').' cat-file blob %s',
-                       escapeshellarg($this->repo),
-                       escapeshellarg($def->hash));
+        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
+                .sprintf("%s -d %s automate get_file %s",
+                         Pluf::f('mtn_path', 'mtn'),
+                         escapeshellarg($this->repo),
+                         escapeshellarg($def->hash));
         return ($cmd_only)
             ? $cmd : self::shell_exec('IDF_Scm_Monotone::getFile', $cmd);
+    }
+
+    private function _getDiff($target, $source = null)
+    {
+        if (empty($source))
+        {
+            $source = "p:$target";
+        }
+
+        // FIXME: add real support for merge revisions here which have
+        // two distinct diff sets
+        $targets = $this->_resolveSelector($target);
+        $sources = $this->_resolveSelector($source);
+
+        if (count($targets) == 0 || count($sources) == 0)
+        {
+            return "";
+        }
+
+        // if target contains a root revision, we cannot produce a diff
+        if (empty($sources[0]))
+        {
+            return "";
+        }
+
+        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
+            .sprintf("%s -d %s automate content_diff -r %s -r %s",
+                     Pluf::f('mtn_path', 'mtn'),
+                     escapeshellarg($this->repo),
+                     escapeshellarg($sources[0]),
+                     escapeshellarg($targets[0]));
+        self::exec('IDF_Scm_Monotone::_getDiff',
+                   $cmd, $out, $return);
+
+        return implode("\n", $out);
     }
 
     /**
@@ -496,44 +615,27 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public function getCommit($commit, $getdiff=false)
     {
-        if ($getdiff) {
-            $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' show --date=iso --pretty=format:%s %s',
-                           escapeshellarg($this->repo),
-                           "'".$this->mediumtree_fmt."'",
-                           escapeshellarg($commit));
-        } else {
-            $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' log -1 --date=iso --pretty=format:%s %s',
-                           escapeshellarg($this->repo),
-                           "'".$this->mediumtree_fmt."'",
-                           escapeshellarg($commit));
-        }
-        $out = array();
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
-        self::exec('IDF_Scm_Monotone::getCommit', $cmd, $out, $ret);
-        if ($ret != 0 or count($out) == 0) {
-            return false;
-        }
-        if ($getdiff) {
-            $log = array();
-            $change = array();
-            $inchange = false;
-            foreach ($out as $line) {
-                if (!$inchange and 0 === strpos($line, 'diff --git a')) {
-                    $inchange = true;
-                }
-                if ($inchange) {
-                    $change[] = $line;
-                } else {
-                    $log[] = $line;
-                }
-            }
-            $out = self::parseLog($log);
-            $out[0]->changes = implode("\n", $change);
-        } else {
-            $out = self::parseLog($out);
-            $out[0]->changes = '';
-        }
-        return $out[0];
+        $revs = $this->_resolveSelector($commit);
+        if (count($revs) == 0)
+            return array();
+
+        $certs = $this->_getCerts($revs[0]);
+
+        // FIXME: this assumes that author, date and changelog are always given
+        $res['author'] = implode(", ", $certs['author']);
+
+        $dates = array();
+        foreach ($certs['date'] as $date)
+            $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
+        $res['date'] = implode(', ', $dates);
+
+        $res['title'] = implode("\n---\n, ", $certs['changelog']);
+
+        $res['commit'] = $revs[0];
+
+        $res['changes'] = ($getdiff) ? $this->_getDiff($revs[0]) : '';
+
+        return (object) $res;
     }
 
     /**
@@ -542,29 +644,35 @@ class IDF_Scm_Monotone extends IDF_Scm
      * @param string Commit ('HEAD')
      * @return bool The commit is big
      */
-    public function isCommitLarge($commit='HEAD')
+    public function isCommitLarge($commit=null)
     {
-        $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' log --numstat -1 --pretty=format:%s %s',
-                       escapeshellarg($this->repo),
-                       "'commit %H%n'",
-                       escapeshellarg($commit));
-        $out = array();
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
-        self::exec('IDF_Scm_Monotone::isCommitLarge', $cmd, $out);
-        $affected = count($out) - 2;
-        $added = 0;
-        $removed = 0;
-        $c=0;
-        foreach ($out as $line) {
-            $c++;
-            if ($c < 3) {
-                continue;
-            }
-            list($a, $r, $f) = preg_split("/[\s]+/", $line, 3, PREG_SPLIT_NO_EMPTY);
-            $added+=$a;
-            $removed+=$r;
+        if (empty($commit))
+        {
+            $commit = "h:"+self::_getMasterBranch($this->project);
         }
-        return ($affected > 100 or ($added + $removed) > 20000);
+
+        $revs = $this->_resolveSelector($commit);
+        if (count($revs) == 0)
+            return false;
+
+        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
+            .sprintf("%s -d %s automate get_revision %s",
+                     Pluf::f('mtn_path', 'mtn'),
+                     escapeshellarg($this->repo),
+                     escapeshellarg($revs[0]));
+        self::exec('IDF_Scm_Monotone::isCommitLarge',
+                   $cmd, $out, $return);
+
+        $newAndPatchedFiles = 0;
+        $stanzas = self::_parseBasicIO(implode("\n", $out));
+
+        foreach ($stanzas as $stanza)
+        {
+            if ($stanza[0]['key'] == "patch" || $stanza[0]['key'] == "add_file")
+                $newAndPatchedFiles++;
+        }
+
+        return $newAndPatchedFiles > 100;
     }
 
     /**
@@ -585,71 +693,5 @@ class IDF_Scm_Monotone extends IDF_Scm
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
         self::exec('IDF_Scm_Monotone::getChangeLog', $cmd, $out);
         return self::parseLog($out);
-    }
-
-    /**
-     * Parse the log lines of a --pretty=medium log output.
-     *
-     * @param array Lines.
-     * @return array Change log.
-     */
-    public static function parseLog($lines)
-    {
-        $res = array();
-        $c = array();
-        $inheads = true;
-        $next_is_title = false;
-        foreach ($lines as $line) {
-            if (preg_match('/^commit (\w{40})$/', $line)) {
-                if (count($c) > 0) {
-                    $c['full_message'] = trim($c['full_message']);
-                    $c['full_message'] = IDF_Commit::toUTF8($c['full_message']);
-                    $c['title'] = IDF_Commit::toUTF8($c['title']);
-                    $res[] = (object) $c;
-                }
-                $c = array();
-                $c['commit'] = trim(substr($line, 7, 40));
-                $c['full_message'] = '';
-                $inheads = true;
-                $next_is_title = false;
-                continue;
-            }
-            if ($next_is_title) {
-                $c['title'] = trim($line);
-                $next_is_title = false;
-                continue;
-            }
-            $match = array();
-            if ($inheads and preg_match('/(\S+)\s*:\s*(.*)/', $line, $match)) {
-                $match[1] = strtolower($match[1]);
-                $c[$match[1]] = trim($match[2]);
-                if ($match[1] == 'date') {
-                    $c['date'] = gmdate('Y-m-d H:i:s', strtotime($match[2]));
-                }
-                continue;
-            }
-            if ($inheads and !$next_is_title and $line == '') {
-                $next_is_title = true;
-                $inheads = false;
-            }
-            if (!$inheads) {
-                $c['full_message'] .= trim($line)."\n";
-                continue;
-            }
-        }
-        $c['full_message'] = !empty($c['full_message']) ? trim($c['full_message']) : '';
-        $c['full_message'] = IDF_Commit::toUTF8($c['full_message']);
-        $c['title'] = IDF_Commit::toUTF8($c['title']);
-        $res[] = (object) $c;
-        return $res;
-    }
-
-    public function getArchiveCommand($commit, $prefix='repository/')
-    {
-        return sprintf(Pluf::f('idf_exec_cmd_prefix', '').
-                       'GIT_DIR=%s '.Pluf::f('git_path', 'git').' archive --format=zip --prefix=%s %s',
-                       escapeshellarg($this->repo),
-                       escapeshellarg($prefix),
-                       escapeshellarg($commit));
     }
 }
