@@ -75,6 +75,7 @@ $cfg['svn_remote_url'] = 'http://localhost/svn/%s';
 
 # Same as for git, you can have multiple repositories, one for each
 # project or a single one for all the projects.
+$cfg['mtn_path'] = 'mtn';
 $cfg['mtn_repositories'] = '/home/mtn/repositories/%s.mtn';
 $cfg['mtn_remote_url'] = 'mtn://localhost/~%s/%s';
 
