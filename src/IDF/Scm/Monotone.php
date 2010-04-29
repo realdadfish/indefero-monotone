@@ -410,7 +410,7 @@ class IDF_Scm_Monotone extends IDF_Scm
                 foreach ($certs['date'] as $date)
                     $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
                 $file['date'] = implode(', ', $dates);
-                $file['log'] = substr(implode("; ", $certs['changelog']), 0, 80);
+                $file['log'] = implode("\n---\n", $certs['changelog']);
             }
 
             $files[] = (object) $file;
@@ -552,7 +552,7 @@ class IDF_Scm_Monotone extends IDF_Scm
                 foreach ($certs['date'] as $date)
                     $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
                 $file['date'] = implode(', ', $dates);
-                $file['log'] = substr(implode("; ", $certs['changelog']), 0, 80);
+                $file['log'] = implode("\n---\n", $certs['changelog']);
             }
 
             return (object) $file;
@@ -629,7 +629,7 @@ class IDF_Scm_Monotone extends IDF_Scm
             $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
         $res['date'] = implode(', ', $dates);
 
-        $res['title'] = implode("\n---\n, ", $certs['changelog']);
+        $res['title'] = implode("\n---\n", $certs['changelog']);
 
         $res['commit'] = $revs[0];
 
