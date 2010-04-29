@@ -92,6 +92,7 @@ class IDF_Middleware
                                            array(
                                    'size' => 'IDF_Views_Source_PrettySize',
                                    'ssize' => 'IDF_Views_Source_PrettySizeSimple',
+                                   'shorten' => 'IDF_Views_Source_ShortenString',
                                                  ));
     }
 }
@@ -104,9 +105,9 @@ function IDF_Middleware_ContextPreProcessor($request)
     $c['isAdmin'] = ($request->user->administrator or $request->user->staff);
     if (isset($request->project)) {
         $c['project'] = $request->project;
-        $c['isOwner'] = $request->user->hasPerm('IDF.project-owner', 
+        $c['isOwner'] = $request->user->hasPerm('IDF.project-owner',
                                                 $request->project);
-        $c['isMember'] = $request->user->hasPerm('IDF.project-member', 
+        $c['isMember'] = $request->user->hasPerm('IDF.project-member',
                                                  $request->project);
         $c = array_merge($c, $request->rights);
     }
