@@ -308,7 +308,7 @@ class IDF_Views_Source
         $in_branches = $scm->inBranches($cobject->commit, '');
         $tags = $scm->getTags();
         $in_tags = $scm->inTags($cobject->commit, '');
-        return Pluf_Shortcuts_RenderToResponse('idf/source/commit.html',
+        return Pluf_Shortcuts_RenderToResponse('idf/source/'.$scmConf.'/commit.html',
                                                array(
                                                      'page_title' => $page_title,
                                                      'title' => $title,

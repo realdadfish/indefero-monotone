@@ -109,10 +109,16 @@ class IDF_Scm_Monotone_Stdio
         if (count($options) > 0)
         {
             $cmd = "o";
-            foreach ($options as $k => $v)
+            foreach ($options as $k => $vals)
             {
-                $cmd .= strlen((string)$k) . ":" . (string)$k;
-                $cmd .= strlen((string)$v) . ":" . (string)$v;
+                if (!is_array($vals))
+                    $vals = array($vals);
+
+                foreach ($vals as $v)
+                {
+                    $cmd .= strlen((string)$k) . ":" . (string)$k;
+                    $cmd .= strlen((string)$v) . ":" . (string)$v;
+                }
             }
             $cmd .= "e ";
         }
@@ -408,6 +414,15 @@ class IDF_Scm_Monotone extends IDF_Scm
                             ++$pos; // space
                             ++$valCount;
                         }
+                    }
+
+                    for ($i = 0; $i <= $valCount; $i++)
+                    {
+                        $stanzaLine['values'][$i] = str_replace(
+                            array("\\\\", "\\\""),
+                            array("\\", "\""),
+                            $stanzaLine['values'][$i]
+                        );
                     }
                 }
 
@@ -795,7 +810,7 @@ class IDF_Scm_Monotone extends IDF_Scm
 
         return $this->stdio->exec(
             array("content_diff"),
-            array("r" => $sources[0], "r" => $targets[0])
+            array("r" => array($sources[0], $targets[0]))
         );
     }
 
@@ -873,6 +888,54 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public function getChangeLog($commit=null, $n=10)
     {
-        throw new Pluf_Exception_NotImplemented();
+        $horizont = $this->_resolveSelector($commit);
+        $initialBranches = array();
+        $logs = array();
+
+        while (!empty($horizont) && $n > 0)
+        {
+            if (count($horizont) > 1)
+            {
+                $out = $this->stdio->exec(array("toposort") + $horizont);
+                $horizont = preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY);
+            }
+
+            $rev = array_shift($horizont);
+            $certs = $this->_getCerts($rev);
+
+            // read in the initial branches we should follow
+            if (count($initialBranches) == 0)
+            {
+                $initialBranches = $certs['branch'];
+            }
+
+            // only add it to our log if it is on one of the initial branches
+            if (count(array_intersect($initialBranches, $certs['branch'])) > 0)
+            {
+                --$n;
+
+                $log = array();
+                $log['author'] = implode(", ", $certs['author']);
+
+                $dates = array();
+                foreach ($certs['date'] as $date)
+                    $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
+                $log['date'] = implode(', ', $dates);
+
+                $combinedChangelog = implode("\n---\n", $certs['changelog']);
+                $split = preg_split("/[\n\r]/", $combinedChangelog, 2);
+                $log['title'] = $split[0];
+                $log['full_message'] = (isset($split[1])) ? trim($split[1]) : '';
+
+                $log['commit'] = $rev;
+
+                $logs[] = (object)$log;
+            }
+
+            $out = $this->stdio->exec(array("parents", $rev));
+            $horizont += preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY);
+        }
+
+        return $logs;
     }
 }

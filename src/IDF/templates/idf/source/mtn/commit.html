@@ -1,0 +1,26 @@
+{extends "idf/source/commit.html"}
+{block context}
+<p><strong>{trans 'Branches:'}</strong><br/>
+{foreach $branches as $selector => $branch}
+{aurl 'url', 'IDF_Views_Source::treeBase', array($project.shortname, $selector)}
+<span class="label{if in_array($branch, $tree_in)} active{/if}">
+    <a href="{$url}" class="label" title="{$branch}">
+        {$branch|shorten:25}
+    </a>
+</span><br/>
+{/foreach}
+</p>
+{if $tags}
+<p><strong>{trans 'Tags:'}</strong><br/>
+{foreach $tags as $selector => $tag}
+{aurl 'url', 'IDF_Views_Source::treeBase', array($project.shortname, $selector)}
+<span class="label{if in_array($tag, $tags_in)} active{/if}">
+    <a href="{$url}" class="label" title="{$tag}">
+        {$tag|shorten:25}
+    </a>
+</span><br/>
+{/foreach}
+</p>
+{/if}
+{/block}
+
