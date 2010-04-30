@@ -51,7 +51,7 @@ class IDF_Diff
         $i = 0; // Used to skip the end of a git patch with --\nversion number
         foreach ($this->lines as $line) {
             $i++;
-            if (0 === strpos($line, '--') and isset($this->lines[$i]) 
+            if (0 === strpos($line, '--') and isset($this->lines[$i])
                 and preg_match('/^\d+\.\d+\.\d+\.\d+$/', $this->lines[$i])) {
                 break;
             }
@@ -65,6 +65,14 @@ class IDF_Diff
                 continue;
             } else if (preg_match('#^diff -r [^\s]+ -r [^\s]+ (.+)$#', $line, $matches)) {
                 $current_file = $matches[1];
+                $files[$current_file] = array();
+                $files[$current_file]['chunks'] = array();
+                $files[$current_file]['chunks_def'] = array();
+                $current_chunk = 0;
+                $indiff = true;
+                continue;
+            } else if (0 === strpos($line, '=========')) {
+                $current_file = self::getMtnFile($this->lines[$i+1]);
                 $files[$current_file] = array();
                 $files[$current_file]['chunks'] = array();
                 $files[$current_file]['chunks_def'] = array();
@@ -131,6 +139,12 @@ class IDF_Diff
     public static function getSvnFile($line)
     {
         return substr(trim($line), 7);
+    }
+
+    public static function getMtnFile($line)
+    {
+        preg_match("/^[+-]{3} ([^\t]+)/", $line, $m);
+        return $m[1];
     }
 
     /**
@@ -215,14 +229,14 @@ class IDF_Diff
      * @param int Number of lines before/after the chunk to be displayed (10)
      * @return Pluf_Template_SafeString The table body
      */
-    public function fileCompare($orig, $chunks, $filename, $context=10) 
+    public function fileCompare($orig, $chunks, $filename, $context=10)
     {
         $orig_lines = preg_split("/\015\012|\015|\012/", $orig);
         $new_chunks = $this->mergeChunks($orig_lines, $chunks, $context);
         return $this->renderCompared($new_chunks, $filename);
     }
 
-    public function mergeChunks($orig_lines, $chunks, $context=10) 
+    public function mergeChunks($orig_lines, $chunks, $context=10)
     {
         $spans = array();
         $new_chunks = array();
@@ -250,7 +264,7 @@ class IDF_Diff
                 for ($lc=$spans[$i][0];$lc<$chunk[0][0];$lc++) {
                     $exists = false;
                     foreach ($chunk_lines as $line) {
-                        if ($lc == $line[0] 
+                        if ($lc == $line[0]
                             or ($chunk[0][1]-$chunk[0][0]+$lc) == $line[1]) {
                             $exists = true;
                             break;
@@ -259,7 +273,7 @@ class IDF_Diff
                     if (!$exists) {
                         $orig = isset($orig_lines[$lc-1]) ? $orig_lines[$lc-1] : '';
                         $n_chunk[] = array(
-                                           $lc, 
+                                           $lc,
                                            $chunk[0][1]-$chunk[0][0]+$lc,
                                            $orig
                                            );
@@ -283,7 +297,7 @@ class IDF_Diff
                     }
                     if (!$exists) {
                         $n_chunk[] = array(
-                                           $lc, 
+                                           $lc,
                                            $lline[1]-$lline[0]+$lc,
                                            $orig_lines[$lc-1]
                                            );
@@ -305,7 +319,7 @@ class IDF_Diff
                     foreach ($chunk as $line) {
                         if ($line[0] > $lline[0] or empty($line[0])) {
                             $nnew_chunks[$i-1][] = $line;
-                        } 
+                        }
                     }
                 } else {
                     $nnew_chunks[] = $chunk;
