@@ -25,9 +25,247 @@
  * Monotone utils.
  *
  */
+
+class IDF_Scm_Monotone_Stdio
+{
+    public static $SUPPORTED_STDIO_VERSION = 2;
+
+    private $repo;
+    private $proc;
+    private $pipes;
+    private $oob;
+    private $cmdnum;
+    private $lastcmd;
+
+    public function __construct($repo)
+    {
+        $this->repo = $repo;
+        $this->start();
+    }
+
+    public function __destruct()
+    {
+        $this->stop();
+    }
+
+    public function start()
+    {
+        if (is_resource($this->proc))
+            $this->stop();
+
+        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
+            .sprintf("%s -d %s automate stdio --no-workspace --norc",
+                         Pluf::f('mtn_path', 'mtn'),
+                         escapeshellarg($this->repo));
+
+        $descriptors = array(
+            0 => array("pipe", "r"),
+            1 => array("pipe", "w"),
+            2 => array("pipe", "r")
+        );
+
+        $this->proc = proc_open($cmd, $descriptors, $this->pipes);
+
+        if (!is_resource($this->proc))
+        {
+            throw new IDF_Scm_Exception("could not start stdio process");
+        }
+
+        $this->_checkVersion();
+
+        $this->cmdnum = -1;
+    }
+
+    public function stop()
+    {
+        if (!is_resource($this->proc))
+            return;
+
+        fclose($this->pipes[0]);
+        fclose($this->pipes[1]);
+        fclose($this->pipes[2]);
+
+        proc_close($this->proc);
+        $this->proc = null;
+    }
+
+    private function _checkVersion()
+    {
+        $version = fgets($this->pipes[1]);
+        if (!preg_match('/^format-version: (\d+)$/', $version, $m) ||
+            $m[1] != self::$SUPPORTED_STDIO_VERSION)
+        {
+            throw new IDF_Scm_Exception(
+                "stdio format version mismatch, expected '".
+                self::$SUPPORTED_STDIO_VERSION."', got '".@$m[1]."'"
+            );
+        }
+        fgets($this->pipes[1]);
+    }
+
+    private function _write($args, $options = array())
+    {
+        $cmd = "";
+        if (count($options) > 0)
+        {
+            $cmd = "o";
+            foreach ($options as $k => $v)
+            {
+                $cmd .= strlen((string)$k) . ":" . (string)$k;
+                $cmd .= strlen((string)$v) . ":" . (string)$v;
+            }
+            $cmd .= "e ";
+        }
+
+        $cmd .= "l";
+        foreach ($args as $arg)
+        {
+            $cmd .= strlen((string)$arg) . ":" . (string)$arg;
+        }
+        $cmd .= "e\n";
+
+        if (!fwrite($this->pipes[0], $cmd))
+        {
+            throw new IDF_Scm_Exception("could not write '$cmd' to process");
+        }
+
+        $this->lastcmd = $cmd;
+        $this->cmdnum++;
+    }
+
+    private function _read()
+    {
+        $this->oob = array('w' => array(),
+                           'p' => array(),
+                           't' => array(),
+                           'e' => array());
+
+        $output = "";
+        $errcode = 0;
+
+        while (true)
+        {
+            $read = array($this->pipes[1]);
+            $write = null;
+            $except = null;
+
+            $streamsChanged = stream_select(
+                $read, $write, $except, 0, 20000
+            );
+
+            if ($streamsChanged === false)
+            {
+                throw new IDF_Scm_Exception(
+                    "Could not select() on read pipe"
+                );
+            }
+
+            if ($streamsChanged == 0)
+            {
+                continue;
+            }
+
+            $data = array(0,"",0);
+            $idx = 0;
+            while (true)
+            {
+                $c = fgetc($this->pipes[1]);
+                if ($c == ':')
+                {
+                    if ($idx == 2)
+                        break;
+
+                    ++$idx;
+                    continue;
+                }
+
+                if (is_numeric($c))
+                    $data[$idx] = $data[$idx] * 10 + $c;
+                else
+                    $data[$idx] .= $c;
+            }
+
+            // sanity
+            if ($this->cmdnum != $data[0])
+            {
+                throw new IDF_Scm_Exception(
+                    "command numbers out of sync; ".
+                    "expected {$this->cmdnum}, got {$data[0]}"
+                );
+            }
+
+            $toRead = $data[2];
+            $buffer = "";
+            while ($toRead > 0)
+            {
+                $buffer .= fread($this->pipes[1], $toRead);
+                $toRead = $data[2] - strlen($buffer);
+            }
+
+            switch ($data[1])
+            {
+                case 'w':
+                case 'p':
+                case 't':
+                case 'e':
+                    $this->oob[$data[1]][] = $buffer;
+                    continue;
+                case 'm':
+                    $output .= $buffer;
+                    continue;
+                case 'l':
+                    $errcode = $buffer;
+                    break 2;
+            }
+        }
+
+        if ($errcode != 0)
+        {
+            throw new IDF_Scm_Exception(
+                "command '{$this->lastcmd}' returned error code $errcode: ".
+                implode(" ", $this->oob['e'])
+            );
+        }
+
+        return $output;
+    }
+
+    public function exec($args, $options = array())
+    {
+        $this->_write($args, $options);
+        return $this->_read();
+    }
+
+    public function getLastWarnings()
+    {
+        return array_key_exists('w', $this->oob) ?
+            $this->oob['w'] : array();
+    }
+
+    public function getLastProgress()
+    {
+        return array_key_exists('p', $this->oob) ?
+            $this->oob['p'] : array();
+    }
+
+    public function getLastTickers()
+    {
+        return array_key_exists('t', $this->oob) ?
+            $this->oob['t'] : array();
+    }
+
+    public function getLastErrors()
+    {
+        return array_key_exists('e', $this->oob) ?
+            $this->oob['e'] : array();
+    }
+}
+
 class IDF_Scm_Monotone extends IDF_Scm
 {
     public static $MIN_INTERFACE_VERSION = 12.0;
+
+    private $stdio;
 
     /* ============================================== *
      *                                                *
@@ -39,6 +277,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     {
         $this->repo = $repo;
         $this->project = $project;
+        $this->stdio = new IDF_Scm_Monotone_Stdio($repo);
     }
 
     public function getRepositorySize()
@@ -56,19 +295,14 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     public function isAvailable()
     {
-        $out = array();
-        try {
-            $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-                .sprintf("%s -d %s automate interface_version",
-                         Pluf::f('mtn_path', 'mtn'),
-                         escapeshellarg($this->repo));
-            self::exec('IDF_Scm_Monotone::isAvailable',
-                   $cmd, $out, $return);
-        } catch (IDF_Scm_Exception $e) {
-            return false;
+        try
+        {
+            $out = $this->stdio->exec(array("interface_version"));
+            return floatval($out) >= self::$MIN_INTERFACE_VERSION;
         }
+        catch (IDF_Scm_Exception $e) {}
 
-        return count($out) > 0 && floatval($out[0]) >= self::$MIN_INTERFACE_VERSION;
+        return false;
     }
 
     public function getBranches()
@@ -77,25 +311,18 @@ class IDF_Scm_Monotone extends IDF_Scm
             return $this->cache['branches'];
         }
         // FIXME: introduce handling of suspended branches
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf("%s -d %s automate branches",
-                     Pluf::f('mtn_path', 'mtn'),
-                     escapeshellarg($this->repo));
-        self::exec('IDF_Scm_Monotone::getBranches',
-                   $cmd, $out, $return);
-        if ($return != 0) {
-            throw new IDF_Scm_Exception(sprintf($this->error_tpl,
-                                                $cmd, $return,
-                                                implode("\n", $out)));
-        }
-        $res = array();
+        $out = $this->stdio->exec(array("branches"));
+
         // FIXME: we could expand each branch with one of its head revisions
         // here, but these would soon become bogus anyway and we cannot
         // map multiple head revisions here either, so we just use the
         // selector as placeholder
-        foreach ($out as $b) {
+        $res = array();
+        foreach (preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY) as $b)
+        {
             $res["h:$b"] = $b;
         }
+
         $this->cache['branches'] = $res;
         return $res;
     }
@@ -121,14 +348,8 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     private function _resolveSelector($selector)
     {
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf("%s -d %s automate select %s",
-                     Pluf::f('mtn_path', 'mtn'),
-                     escapeshellarg($this->repo),
-                     escapeshellarg($selector));
-        self::exec('IDF_Scm_Monotone::_resolveSelector',
-                   $cmd, $out, $return);
-        return $out;
+        $out = $this->stdio->exec(array("select", $selector));
+        return preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY);
     }
 
     /**
@@ -139,9 +360,6 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     private static function _parseBasicIO($in)
     {
-        if (substr($in, -1) != "\n")
-            $in .= "\n";
-
         $pos = 0;
         $stanzas = array();
 
@@ -208,15 +426,9 @@ class IDF_Scm_Monotone extends IDF_Scm
 
         if (!array_key_exists($rev, $certCache))
         {
-            $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-                .sprintf("%s -d %s automate certs %s",
-                         Pluf::f('mtn_path', 'mtn'),
-                         escapeshellarg($this->repo),
-                         escapeshellarg($rev));
-            self::exec('IDF_Scm_Monotone::_getCerts',
-                       $cmd, $out, $return);
+            $out = $this->stdio->exec(array("certs", $rev));
 
-            $stanzas = self::_parseBasicIO(implode("\n", $out));
+            $stanzas = self::_parseBasicIO($out);
             $certs = array();
             foreach ($stanzas as $stanza)
             {
@@ -264,16 +476,11 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     private function _getLastChangeFor($file, $startrev)
     {
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf("%s -d %s automate get_content_changed %s %s",
-                     Pluf::f('mtn_path', 'mtn'),
-                     escapeshellarg($this->repo),
-                     escapeshellarg($startrev),
-                     escapeshellarg($file));
-        self::exec('IDF_Scm_Monotone::_getLastChangeFor',
-                   $cmd, $out, $return);
+        $out = $this->stdio->exec(array(
+            "get_content_changed", $startrev, $file
+        ));
 
-        $stanzas = self::_parseBasicIO(implode("\n", $out));
+        $stanzas = self::_parseBasicIO($out);
 
         // FIXME: we only care about the first returned content mark
         // everything else seem to be very rare cases
@@ -305,17 +512,15 @@ class IDF_Scm_Monotone extends IDF_Scm
      **/
     public function getTags()
     {
-        if (isset($this->cache['tags'])) {
+        if (isset($this->cache['tags']))
+        {
             return $this->cache['tags'];
         }
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-                .sprintf("%s -d %s automate tags",
-                         Pluf::f('mtn_path', 'mtn'),
-                         escapeshellarg($this->repo));
-        self::exec('IDF_Scm_Monotone::getTags', $cmd, $out, $return);
+
+        $out = $this->stdio->exec(array("tags"));
 
         $tags = array();
-        $stanzas = self::_parseBasicIO(implode("\n", $out));
+        $stanzas = self::_parseBasicIO($out);
         foreach ($stanzas as $stanza)
         {
             $tagname = null;
@@ -360,15 +565,12 @@ class IDF_Scm_Monotone extends IDF_Scm
             return array();
         }
 
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-                .sprintf("%s -d %s automate get_manifest_of %s",
-                         Pluf::f('mtn_path', 'mtn'),
-                         escapeshellarg($this->repo),
-                         escapeshellarg($revs[0]));
-        self::exec('IDF_Scm_Monotone::getTree', $cmd, $out, $return);
+        $out = $this->stdio->exec(array(
+            "get_manifest_of", $revs[0]
+        ));
 
         $files = array();
-        $stanzas = self::_parseBasicIO(implode("\n", $out));
+        $stanzas = self::_parseBasicIO($out);
         $folder = $folder == '/' || empty($folder) ? '' : $folder.'/';
 
         foreach ($stanzas as $stanza)
@@ -501,15 +703,12 @@ class IDF_Scm_Monotone extends IDF_Scm
         if (count($revs) == 0)
             return false;
 
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-                .sprintf("%s -d %s automate get_manifest_of %s",
-                         Pluf::f('mtn_path', 'mtn'),
-                         escapeshellarg($this->repo),
-                         escapeshellarg($revs[0]));
-        self::exec('IDF_Scm_Monotone::getPathInfo', $cmd, $out, $return);
+        $out = $this->stdio->exec(array(
+            "get_manifest_of", $revs[0]
+        ));
 
         $files = array();
-        $stanzas = self::_parseBasicIO(implode("\n", $out));
+        $stanzas = self::_parseBasicIO($out);
 
         foreach ($stanzas as $stanza)
         {
@@ -562,13 +761,13 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     public function getFile($def, $cmd_only=false)
     {
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-                .sprintf("%s -d %s automate get_file %s",
-                         Pluf::f('mtn_path', 'mtn'),
-                         escapeshellarg($this->repo),
-                         escapeshellarg($def->hash));
-        return ($cmd_only)
-            ? $cmd : self::shell_exec('IDF_Scm_Monotone::getFile', $cmd);
+        // this won't work with remote databases
+        if ($cmd_only)
+        {
+            throw new Pluf_Exception_NotImplemented();
+        }
+
+        return $this->stdio->exec(array("get_file", $def->hash));
     }
 
     private function _getDiff($target, $source = null)
@@ -594,16 +793,10 @@ class IDF_Scm_Monotone extends IDF_Scm
             return "";
         }
 
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf("%s -d %s automate content_diff -r %s -r %s",
-                     Pluf::f('mtn_path', 'mtn'),
-                     escapeshellarg($this->repo),
-                     escapeshellarg($sources[0]),
-                     escapeshellarg($targets[0]));
-        self::exec('IDF_Scm_Monotone::_getDiff',
-                   $cmd, $out, $return);
-
-        return implode("\n", $out);
+        return $this->stdio->exec(
+            array("content_diff"),
+            array("r" => $sources[0], "r" => $targets[0])
+        );
     }
 
     /**
@@ -655,16 +848,12 @@ class IDF_Scm_Monotone extends IDF_Scm
         if (count($revs) == 0)
             return false;
 
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf("%s -d %s automate get_revision %s",
-                     Pluf::f('mtn_path', 'mtn'),
-                     escapeshellarg($this->repo),
-                     escapeshellarg($revs[0]));
-        self::exec('IDF_Scm_Monotone::isCommitLarge',
-                   $cmd, $out, $return);
+        $out = $this->stdio->exec(array(
+            "get_revision", $revs[0]
+        ));
 
         $newAndPatchedFiles = 0;
-        $stanzas = self::_parseBasicIO(implode("\n", $out));
+        $stanzas = self::_parseBasicIO($out);
 
         foreach ($stanzas as $stanza)
         {
@@ -682,16 +871,8 @@ class IDF_Scm_Monotone extends IDF_Scm
      * @param int Number of changes (10).
      * @return array Changes.
      */
-    public function getChangeLog($commit='HEAD', $n=10)
+    public function getChangeLog($commit=null, $n=10)
     {
-        if ($n === null) $n = '';
-        else $n = ' -'.$n;
-        $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' log%s --date=iso --pretty=format:\'%s\' %s',
-                       escapeshellarg($this->repo), $n, $this->mediumtree_fmt,
-                       escapeshellarg($commit));
-        $out = array();
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
-        self::exec('IDF_Scm_Monotone::getChangeLog', $cmd, $out);
-        return self::parseLog($out);
+        throw new Pluf_Exception_NotImplemented();
     }
 }
