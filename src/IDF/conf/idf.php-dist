@@ -73,11 +73,29 @@ $cfg['git_write_remote_url'] = 'git@localhost:%s.git';
 $cfg['svn_repositories'] = 'file:///home/svn/repositories/%s';
 $cfg['svn_remote_url'] = 'http://localhost/svn/%s';
 
-# Same as for git, you can have multiple repositories, one for each
-# project or a single one for all the projects.
+# Path to the monotone binary
 $cfg['mtn_path'] = 'mtn';
+# Same as for git, you can have multiple repositories, one for each
+# project or a single one for all the projects. Beware though that
+# if you want to setup separate write access for the projects, you
+# you have to setup different databases for each one.
+#
+# To access an mtn repository remotely you have two possibilities,
+# via ssh and monotone's own netsync protocol. Usually each repository
+# has to serve its contents in a separate process, but there exists a tool,
+# called "usher", which acts as single entry point and distributes incoming
+# requests further, based either on a particular branch pattern or configured
+# host name (similar to SNI, the Server Name Indication, of TLS).
+#
+# A full HOWTO set this up is beyond this scope, please refer to the
+# documentation of monotone and / or ask on their mailing list / IRC channel
+# (irc.oftc.net/#monotone)
 $cfg['mtn_repositories'] = '/home/mtn/repositories/%s.mtn';
-$cfg['mtn_remote_url'] = 'mtn://localhost/~%s/%s';
+# The preferred URL with which people can access this service. The placeholder
+# denotes the unique project name which could be used as distinguishable SNI.
+$cfg['mtn_remote_host'] = '%s.my.host.com';
+# Possible values 'ssh' and 'netsync'
+$cfg['mtn_remote_protocol'] = 'netsync';
 
 # Mercurial repositories path
 #$cfg['mercurial_repositories'] = '/home/mercurial/repositories/%s';

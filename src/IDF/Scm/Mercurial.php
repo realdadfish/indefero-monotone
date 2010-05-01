@@ -37,9 +37,9 @@ class IDF_Scm_Mercurial extends IDF_Scm
     {
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').'du -sk '
             .escapeshellarg($this->repo);
-        $out = explode(' ', 
+        $out = explode(' ',
                        self::shell_exec('IDF_Scm_Mercurial::getRepositorySize',
-                                        $cmd), 
+                                        $cmd),
                        2);
         return (int) $out[0]*1024;
     }
@@ -77,12 +77,12 @@ class IDF_Scm_Mercurial extends IDF_Scm
         return 'tip';
     }
 
-    public static function getAnonymousAccessUrl($project)
+    public static function getAnonymousAccessUrl($project, $commit=null)
     {
         return sprintf(Pluf::f('mercurial_remote_url'), $project->shortname);
     }
 
-    public static function getAuthAccessUrl($project, $user)
+    public static function getAuthAccessUrl($project, $user, $commit=null)
     {
         return sprintf(Pluf::f('mercurial_remote_url'), $project->shortname);
     }
@@ -109,11 +109,11 @@ class IDF_Scm_Mercurial extends IDF_Scm
         $cmd = sprintf(Pluf::f('hg_path', 'hg').' log -R %s -r %s',
                        escapeshellarg($this->repo),
                        escapeshellarg($hash));
-        $ret = 0; 
+        $ret = 0;
         $out = array();
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
         self::exec('IDF_Scm_Mercurial::testHash', $cmd, $out, $ret);
-        return ($ret != 0) ? false : 'commit'; 
+        return ($ret != 0) ? false : 'commit';
     }
 
     public function getTree($commit, $folder='/', $branch=null)
@@ -130,7 +130,7 @@ class IDF_Scm_Mercurial extends IDF_Scm
                     $found = true;
                     break;
                 }
-            } 
+            }
             if (!$found) {
                 throw new Exception(sprintf(__('Folder %1$s not found in commit %2$s.'), $folder, $commit));
             }
@@ -142,7 +142,7 @@ class IDF_Scm_Mercurial extends IDF_Scm
     /**
      * Get the tree info.
      *
-     * @param string Tree hash 
+     * @param string Tree hash
      * @param bool Do we recurse in subtrees (true)
      * @return array Array of file information.
      */
@@ -152,7 +152,7 @@ class IDF_Scm_Mercurial extends IDF_Scm
             throw new Exception(sprintf(__('Not a valid tree: %s.'), $tree));
         }
         $cmd_tmpl = Pluf::f('hg_path', 'hg').' manifest -R %s --debug -r %s';
-        $cmd = sprintf($cmd_tmpl, escapeshellarg($this->repo), $tree, ($recurse) ? '' : ''); 
+        $cmd = sprintf($cmd_tmpl, escapeshellarg($this->repo), $tree, ($recurse) ? '' : '');
         $out = array();
         $res = array();
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
@@ -192,7 +192,7 @@ class IDF_Scm_Mercurial extends IDF_Scm
             }
             $fullpath = ($folder) ? $folder.'/'.$file : $file;
             $efullpath = self::smartEncode($fullpath);
-            $res[] = (object) array('perm' => $perm, 'type' => $type, 
+            $res[] = (object) array('perm' => $perm, 'type' => $type,
                                     'hash' => $hash, 'fullpath' => $fullpath,
                                     'efullpath' => $efullpath, 'file' => $file);
         }
@@ -202,7 +202,7 @@ class IDF_Scm_Mercurial extends IDF_Scm
     public function getPathInfo($totest, $commit='tip')
     {
         $cmd_tmpl = Pluf::f('hg_path', 'hg').' manifest -R %s --debug -r %s';
-        $cmd = sprintf($cmd_tmpl, escapeshellarg($this->repo), $commit); 
+        $cmd = sprintf($cmd_tmpl, escapeshellarg($this->repo), $commit);
         $out = array();
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
         self::exec('IDF_Scm_Mercurial::getPathInfo', $cmd, $out);
@@ -219,8 +219,8 @@ class IDF_Scm_Mercurial extends IDF_Scm
                 $tmp .= $dir[$i];
                 if ($tmp == $totest) {
                     $pathinfo = pathinfo($totest);
-                    return (object) array('perm' => '000', 'type' => 'tree', 
-                                          'hash' => $hash, 
+                    return (object) array('perm' => '000', 'type' => 'tree',
+                                          'hash' => $hash,
                                           'fullpath' => $totest,
                                           'file' => $pathinfo['basename'],
                                           'commit' => $commit
@@ -239,8 +239,8 @@ class IDF_Scm_Mercurial extends IDF_Scm
             }
             if ($totest == $file) {
                 $pathinfo = pathinfo($totest);
-                return (object) array('perm' => $perm, 'type' => $type, 
-                                      'hash' => $hash, 
+                return (object) array('perm' => $perm, 'type' => $type,
+                                      'hash' => $hash,
                                       'fullpath' => $totest,
                                       'file' => $pathinfo['basename'],
                                       'commit' => $commit
@@ -249,15 +249,15 @@ class IDF_Scm_Mercurial extends IDF_Scm
         }
         return false;
     }
-      
+
     public function getFile($def, $cmd_only=false)
     {
         $cmd = sprintf(Pluf::f('hg_path', 'hg').' cat -R %s -r %s %s',
-                       escapeshellarg($this->repo), 
-                       escapeshellarg($def->commit), 
+                       escapeshellarg($this->repo),
+                       escapeshellarg($def->commit),
                        escapeshellarg($this->repo.'/'.$def->fullpath));
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
-        return ($cmd_only) ? 
+        return ($cmd_only) ?
             $cmd : self::shell_exec('IDF_Scm_Mercurial::getFile', $cmd);
     }
 
@@ -272,7 +272,7 @@ class IDF_Scm_Mercurial extends IDF_Scm
             return $this->cache['branches'];
         }
         $out = array();
-        $cmd = sprintf(Pluf::f('hg_path', 'hg').' branches -R %s', 
+        $cmd = sprintf(Pluf::f('hg_path', 'hg').' branches -R %s',
                        escapeshellarg($this->repo));
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
         self::exec('IDF_Scm_Mercurial::getBranches', $cmd, $out);
@@ -296,7 +296,7 @@ class IDF_Scm_Mercurial extends IDF_Scm
             return $this->cache['tags'];
         }
         $out = array();
-        $cmd = sprintf(Pluf::f('hg_path', 'hg').' tags -R %s', 
+        $cmd = sprintf(Pluf::f('hg_path', 'hg').' tags -R %s',
                        escapeshellarg($this->repo));
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
         self::exec('IDF_Scm_Mercurial::getTags', $cmd, $out);
@@ -311,13 +311,13 @@ class IDF_Scm_Mercurial extends IDF_Scm
 
     public function inBranches($commit, $path)
     {
-        return (in_array($commit, array_keys($this->getBranches()))) 
+        return (in_array($commit, array_keys($this->getBranches())))
                 ? array($commit) : array();
     }
 
     public function inTags($commit, $path)
     {
-        return (in_array($commit, array_keys($this->getTags()))) 
+        return (in_array($commit, array_keys($this->getTags())))
                 ? array($commit) : array();
     }
 
@@ -333,9 +333,9 @@ class IDF_Scm_Mercurial extends IDF_Scm
         if (!$this->isValidRevision($commit)) {
             return false;
         }
-        $tmpl = ($getdiff) ? 
+        $tmpl = ($getdiff) ?
             Pluf::f('hg_path', 'hg').' log -p -r %s -R %s' : Pluf::f('hg_path', 'hg').' log -r %s -R %s';
-        $cmd = sprintf($tmpl, 
+        $cmd = sprintf($tmpl,
                        escapeshellarg($commit), escapeshellarg($this->repo));
         $out = array();
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
@@ -411,7 +411,7 @@ class IDF_Scm_Mercurial extends IDF_Scm
                 $c['full_message'] = '';
                 $i=1;
                 continue;
-                
+
             }
             if ($i == $hdrs) {
                 $c['title'] = trim($line);

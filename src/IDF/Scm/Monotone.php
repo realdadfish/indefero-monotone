@@ -61,7 +61,6 @@ class IDF_Scm_Monotone_Stdio
         $descriptors = array(
             0 => array("pipe", "r"),
             1 => array("pipe", "w"),
-            2 => array("pipe", "r")
         );
 
         $this->proc = proc_open($cmd, $descriptors, $this->pipes);
@@ -83,14 +82,43 @@ class IDF_Scm_Monotone_Stdio
 
         fclose($this->pipes[0]);
         fclose($this->pipes[1]);
-        fclose($this->pipes[2]);
 
         proc_close($this->proc);
         $this->proc = null;
     }
 
+    private function _waitForReadyRead()
+    {
+        if (!is_resource($this->pipes[1]))
+            return false;
+
+        $read = array($this->pipes[1]);
+        $write = null;
+        $except = null;
+
+        $streamsChanged = stream_select(
+            $read, $write, $except, 0, 20000
+        );
+
+        if ($streamsChanged === false)
+        {
+            throw new IDF_Scm_Exception(
+                "Could not select() on read pipe"
+            );
+        }
+
+        if ($streamsChanged == 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     private function _checkVersion()
     {
+        $this->_waitForReadyRead();
+
         $version = fgets($this->pipes[1]);
         if (!preg_match('/^format-version: (\d+)$/', $version, $m) ||
             $m[1] != self::$SUPPORTED_STDIO_VERSION)
@@ -100,6 +128,7 @@ class IDF_Scm_Monotone_Stdio
                 self::$SUPPORTED_STDIO_VERSION."', got '".@$m[1]."'"
             );
         }
+
         fgets($this->pipes[1]);
     }
 
@@ -151,25 +180,8 @@ class IDF_Scm_Monotone_Stdio
 
         while (true)
         {
-            $read = array($this->pipes[1]);
-            $write = null;
-            $except = null;
-
-            $streamsChanged = stream_select(
-                $read, $write, $except, 0, 20000
-            );
-
-            if ($streamsChanged === false)
-            {
-                throw new IDF_Scm_Exception(
-                    "Could not select() on read pipe"
-                );
-            }
-
-            if ($streamsChanged == 0)
-            {
+            if (!$this->_waitForReadyRead())
                 continue;
-            }
 
             $data = array(0,"",0);
             $idx = 0;
@@ -669,18 +681,50 @@ class IDF_Scm_Monotone extends IDF_Scm
         return $branch;
     }
 
-    public static function getAnonymousAccessUrl($project)
+    public static function getAnonymousAccessUrl($project, $commit = null)
     {
+        $branch = self::_getMasterBranch($project);
+        if (!empty($commit))
+        {
+            $scm = IDF_Scm::get($project);
+            $revs = $scm->_resolveSelector($commit);
+            if (count($revs) > 0)
+            {
+                $certs = $scm->_getCerts($revs[0]);
+                // for the very seldom case that a revision
+                // has no branch certificate
+                if (count($certs['branch']) == 0)
+                {
+                    $branch = "*";
+                }
+                else
+                {
+                    $branch = $certs['branch'][0];
+                }
+            }
+        }
+
+        $protocol = Pluf::f('mtn_remote_protocol', 'netsync');
+
+        if ($protocol == "ssh")
+        {
+            // ssh is protocol + host + db-path + branch
+            return "ssh://" .
+                sprintf(Pluf::f('mtn_remote_host'), $project->shortname) .
+                sprintf(Pluf::f('mtn_repositories'), $project->shortname) .
+                " " . $branch;
+        }
+
+        // netsync is the default
         return sprintf(
-            Pluf::f('mtn_remote_url'),
-            $project->shortname,
-            self::_getMasterBranch($project)
-        );
+            Pluf::f('mtn_remote_host'),
+            $project->shortname
+        )." ".$branch;
     }
 
-    public static function getAuthAccessUrl($project, $user)
+    public static function getAuthAccessUrl($project, $user, $commit = null)
     {
-        return self::getAnonymousAccessUrl($project);
+        return self::getAnonymousAccessUrl($project, $commit);
     }
 
     /**

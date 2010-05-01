@@ -28,12 +28,12 @@
 class IDF_Scm_Git extends IDF_Scm
 {
     public $mediumtree_fmt = 'commit %H%nAuthor: %an <%ae>%nTree: %T%nDate: %ai%n%n%s%n%n%b';
-    
+
     /* ============================================== *
      *                                                *
      *   Common Methods Implemented By All The SCMs   *
      *                                                *
-     * ============================================== */ 
+     * ============================================== */
 
     public function __construct($repo, $project=null)
     {
@@ -48,7 +48,7 @@ class IDF_Scm_Git extends IDF_Scm
         }
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').'du -sk '
             .escapeshellarg($this->repo);
-        $out = explode(' ', 
+        $out = explode(' ',
                        self::shell_exec('IDF_Scm_Git::getRepositorySize', $cmd),
                        2);
         return (int) $out[0]*1024;
@@ -70,13 +70,13 @@ class IDF_Scm_Git extends IDF_Scm
             return $this->cache['branches'];
         }
         $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' branch', 
+            .sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' branch',
                      escapeshellarg($this->repo));
-        self::exec('IDF_Scm_Git::getBranches', 
+        self::exec('IDF_Scm_Git::getBranches',
                    $cmd, $out, $return);
         if ($return != 0) {
             throw new IDF_Scm_Exception(sprintf($this->error_tpl,
-                                                $cmd, $return, 
+                                                $cmd, $return,
                                                 implode("\n", $out)));
         }
         $res = array();
@@ -216,7 +216,7 @@ class IDF_Scm_Git extends IDF_Scm
         if ($folder) {
             // As we are limiting to a given folder, we need to find
             // the tree corresponding to this folder.
-            $tinfo = $this->getTreeInfo($commit, $folder); 
+            $tinfo = $this->getTreeInfo($commit, $folder);
             if (isset($tinfo[0]) and $tinfo[0]->type == 'tree') {
                 $tree = $tinfo[0]->hash;
             } else {
@@ -231,7 +231,7 @@ class IDF_Scm_Git extends IDF_Scm
             // information as possible.
             if ($file->type == 'blob') {
                 $file->date = $co->date;
-                $file->log = '----'; 
+                $file->log = '----';
                 $file->author = 'Unknown';
             }
             $file->fullpath = ($folder) ? $folder.'/'.$file->file : $file->file;
@@ -270,12 +270,12 @@ class IDF_Scm_Git extends IDF_Scm
         return null;
     }
 
-    public static function getAnonymousAccessUrl($project)
+    public static function getAnonymousAccessUrl($project, $commit=null)
     {
         return sprintf(Pluf::f('git_remote_url'), $project->shortname);
     }
 
-    public static function getAuthAccessUrl($project, $user)
+    public static function getAuthAccessUrl($project, $user, $commit=null)
     {
         return sprintf(Pluf::f('git_write_remote_url'), $project->shortname);
     }
@@ -320,7 +320,7 @@ class IDF_Scm_Git extends IDF_Scm
     /**
      * Get the tree info.
      *
-     * @param string Tree hash 
+     * @param string Tree hash
      * @param bool Do we recurse in subtrees (true)
      * @param string Folder in which we want to get the info ('')
      * @return array Array of file information.
@@ -332,15 +332,15 @@ class IDF_Scm_Git extends IDF_Scm
         }
         $cmd_tmpl = 'GIT_DIR=%s '.Pluf::f('git_path', 'git').' ls-tree -l %s %s';
         $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf($cmd_tmpl, escapeshellarg($this->repo), 
+            .sprintf($cmd_tmpl, escapeshellarg($this->repo),
                      escapeshellarg($tree), escapeshellarg($folder));
         $out = array();
         $res = array();
         self::exec('IDF_Scm_Git::getTreeInfo', $cmd, $out);
         foreach ($out as $line) {
             list($perm, $type, $hash, $size, $file) = preg_split('/ |\t/', $line, 5, PREG_SPLIT_NO_EMPTY);
-            $res[] = (object) array('perm' => $perm, 'type' => $type, 
-                                    'size' => $size, 'hash' => $hash, 
+            $res[] = (object) array('perm' => $perm, 'type' => $type,
+                                    'size' => $size, 'hash' => $hash,
                                     'file' => $file);
         }
         return $res;
@@ -356,8 +356,8 @@ class IDF_Scm_Git extends IDF_Scm
     public function getPathInfo($totest, $commit='HEAD')
     {
         $cmd_tmpl = 'GIT_DIR=%s '.Pluf::f('git_path', 'git').' ls-tree -r -t -l %s';
-        $cmd = sprintf($cmd_tmpl, 
-                       escapeshellarg($this->repo), 
+        $cmd = sprintf($cmd_tmpl,
+                       escapeshellarg($this->repo),
                        escapeshellarg($commit));
         $out = array();
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
@@ -366,8 +366,8 @@ class IDF_Scm_Git extends IDF_Scm
             list($perm, $type, $hash, $size, $file) = preg_split('/ |\t/', $line, 5, PREG_SPLIT_NO_EMPTY);
             if ($totest == $file) {
                 $pathinfo = pathinfo($file);
-                return (object) array('perm' => $perm, 'type' => $type, 
-                                      'size' => $size, 'hash' => $hash, 
+                return (object) array('perm' => $perm, 'type' => $type,
+                                      'size' => $size, 'hash' => $hash,
                                       'fullpath' => $file,
                                       'file' => $pathinfo['basename']);
             }
@@ -379,9 +379,9 @@ class IDF_Scm_Git extends IDF_Scm
     {
         $cmd = sprintf(Pluf::f('idf_exec_cmd_prefix', '').
                        'GIT_DIR=%s '.Pluf::f('git_path', 'git').' cat-file blob %s',
-                       escapeshellarg($this->repo), 
+                       escapeshellarg($this->repo),
                        escapeshellarg($def->hash));
-        return ($cmd_only) 
+        return ($cmd_only)
             ? $cmd : self::shell_exec('IDF_Scm_Git::getFile', $cmd);
     }
 
@@ -396,13 +396,13 @@ class IDF_Scm_Git extends IDF_Scm
     {
         if ($getdiff) {
             $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' show --date=iso --pretty=format:%s %s',
-                           escapeshellarg($this->repo), 
-                           "'".$this->mediumtree_fmt."'", 
+                           escapeshellarg($this->repo),
+                           "'".$this->mediumtree_fmt."'",
                            escapeshellarg($commit));
         } else {
             $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' log -1 --date=iso --pretty=format:%s %s',
-                           escapeshellarg($this->repo), 
-                           "'".$this->mediumtree_fmt."'", 
+                           escapeshellarg($this->repo),
+                           "'".$this->mediumtree_fmt."'",
                            escapeshellarg($commit));
         }
         $out = array();
@@ -443,8 +443,8 @@ class IDF_Scm_Git extends IDF_Scm
     public function isCommitLarge($commit='HEAD')
     {
         $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' log --numstat -1 --pretty=format:%s %s',
-                       escapeshellarg($this->repo), 
-                       "'commit %H%n'", 
+                       escapeshellarg($this->repo),
+                       "'commit %H%n'",
                        escapeshellarg($commit));
         $out = array();
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
@@ -477,7 +477,7 @@ class IDF_Scm_Git extends IDF_Scm
         if ($n === null) $n = '';
         else $n = ' -'.$n;
         $cmd = sprintf('GIT_DIR=%s '.Pluf::f('git_path', 'git').' log%s --date=iso --pretty=format:\'%s\' %s',
-                       escapeshellarg($this->repo), $n, $this->mediumtree_fmt, 
+                       escapeshellarg($this->repo), $n, $this->mediumtree_fmt,
                        escapeshellarg($commit));
         $out = array();
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
@@ -683,7 +683,7 @@ class IDF_Scm_Git extends IDF_Scm
     /**
      * Build the blob info cache.
      *
-     * We build the blob info cache 500 commits at a time. 
+     * We build the blob info cache 500 commits at a time.
      */
     public function buildBlobInfoCache()
     {
@@ -737,7 +737,7 @@ class IDF_Scm_Git extends IDF_Scm
 
     /**
      * Cache blob info.
-     * 
+     *
      * Given a series of blob info, cache them.
      *
      * @param array Blob info
@@ -765,7 +765,7 @@ class IDF_Scm_Git extends IDF_Scm
         foreach ($data as $rec) {
             if (isset($hashes[substr($rec, 0, 40)])) {
                 $tmp = explode(chr(31), substr($rec, 40), 3);
-                $res[substr($rec, 0, 40)] = 
+                $res[substr($rec, 0, 40)] =
                     (object) array('hash' => substr($rec, 0, 40),
                                    'date' => $tmp[0],
                                    'title' => $tmp[2],
@@ -777,7 +777,7 @@ class IDF_Scm_Git extends IDF_Scm
 
     /**
      * File cache blob info.
-     * 
+     *
      * Given a series of blob info, cache them.
      *
      * @param array Blob info
@@ -792,9 +792,9 @@ class IDF_Scm_Git extends IDF_Scm
         }
         $data = implode(chr(30), $data).chr(30);
         $cache = Pluf::f('tmp_folder').'/IDF_Scm_Git-'.md5($this->repo).'.cache.db';
-        $fp = fopen($cache, 'ab'); 
+        $fp = fopen($cache, 'ab');
         if ($fp) {
-            flock($fp, LOCK_EX); 
+            flock($fp, LOCK_EX);
             fwrite($fp, $data, strlen($data));
             fclose($fp); // releases the lock too
             return true;

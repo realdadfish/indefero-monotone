@@ -381,15 +381,16 @@ class IDF_Project extends Pluf_Model
      * This will return the right url based on the user.
      *
      * @param Pluf_User The user (null)
+     * @param string    A specific commit to access
      */
-    public function getSourceAccessUrl($user=null)
+    public function getSourceAccessUrl($user=null, $commit=null)
     {
         $right = $this->getConf()->getVal('source_access_rights', 'all');
         if (($user == null or $user->isAnonymous())
             and  $right == 'all' and !$this->private) {
-            return $this->getRemoteAccessUrl();
+            return $this->getRemoteAccessUrl($commit);
         }
-        return $this->getWriteRemoteAccessUrl($user);
+        return $this->getWriteRemoteAccessUrl($user, $commit);
     }
 
 
@@ -397,15 +398,17 @@ class IDF_Project extends Pluf_Model
      * Get the remote access url to the repository.
      *
      * This will always return the anonymous access url.
+     *
+     * @param string    A specific commit to access
      */
-    public function getRemoteAccessUrl()
+    public function getRemoteAccessUrl($commit=null)
     {
         $conf = $this->getConf();
         $scm = $conf->getVal('scm', 'git');
         $scms = Pluf::f('allowed_scm');
         Pluf::loadClass($scms[$scm]);
         return call_user_func(array($scms[$scm], 'getAnonymousAccessUrl'),
-                              $this);
+                              $this, $commit);
     }
 
     /**
@@ -414,14 +417,16 @@ class IDF_Project extends Pluf_Model
      * Some SCM have a remote access URL to write which is not the
      * same as the one to read. For example, you do a checkout with
      * git-daemon and push with SSH.
+     *
+     * @param string    A specific commit to access
      */
-    public function getWriteRemoteAccessUrl($user)
+    public function getWriteRemoteAccessUrl($user,$commit=null)
     {
         $conf = $this->getConf();
         $scm = $conf->getVal('scm', 'git');
         $scms = Pluf::f('allowed_scm');
         return call_user_func(array($scms[$scm], 'getAuthAccessUrl'),
-                              $this, $user);
+                              $this, $user, $commit);
     }
 
     /**

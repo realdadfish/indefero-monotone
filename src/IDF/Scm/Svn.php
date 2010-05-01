@@ -24,7 +24,7 @@
 /**
  * Subversion backend.
  * When a branch is not a branch.
- * 
+ *
  * Contrary to most other SCMs, Subversion is using folders to manage
  * the branches and so what is either the commit or the branch in
  * other SCMs is the revision number with Subversion. So, do not be
@@ -80,12 +80,13 @@ class IDF_Scm_Svn extends IDF_Scm
      * Returns the URL of the subversion repository.
      *
      * @param IDF_Project
+     * @param string
      * @return string URL
      */
-    public static function getAnonymousAccessUrl($project)
+    public static function getAnonymousAccessUrl($project,$commit=null)
     {
         $conf = $project->getConf();
-        if (false !== ($url=$conf->getVal('svn_remote_url', false)) 
+        if (false !== ($url=$conf->getVal('svn_remote_url', false))
             && !empty($url)) {
             // Remote repository
             return $url;
@@ -97,12 +98,13 @@ class IDF_Scm_Svn extends IDF_Scm
      * Returns the URL of the subversion repository.
      *
      * @param IDF_Project
+     * @param string
      * @return string URL
      */
-    public static function getAuthAccessUrl($project, $user)
+    public static function getAuthAccessUrl($project, $user, $commit=null)
     {
         $conf = $project->getConf();
-        if (false !== ($url=$conf->getVal('svn_remote_url', false)) 
+        if (false !== ($url=$conf->getVal('svn_remote_url', false))
             && !empty($url)) {
             // Remote repository
             return $url;
@@ -120,7 +122,7 @@ class IDF_Scm_Svn extends IDF_Scm
     {
         $conf = $project->getConf();
         // Find the repository
-        if (false !== ($rep=$conf->getVal('svn_remote_url', false)) 
+        if (false !== ($rep=$conf->getVal('svn_remote_url', false))
             && !empty($rep)) {
             // Remote repository
             $scm = new IDF_Scm_Svn($rep, $project);
@@ -268,7 +270,7 @@ class IDF_Scm_Svn extends IDF_Scm
         $file['type'] = $this->assoc[(string) $entry['kind']];
         $pathinfo = pathinfo($filename);
         $file['file'] = $pathinfo['basename'];
-        $file['rev'] = $rev; 
+        $file['rev'] = $rev;
         $file['author'] = (string) $entry->author;
         $file['date'] = gmdate('Y-m-d H:i:s', strtotime((string) $entry->commit->date));
         $file['size'] = (string) $entry->size;
@@ -284,12 +286,12 @@ class IDF_Scm_Svn extends IDF_Scm
                        escapeshellarg($this->repo.'/'.self::smartEncode($def->fullpath)),
                        escapeshellarg($def->rev));
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').$cmd;
-        return ($cmd_only) ? 
+        return ($cmd_only) ?
             $cmd : self::shell_exec('IDF_Scm_Svn::getFile', $cmd);
     }
 
     /**
-     * Subversion branches are folder based. 
+     * Subversion branches are folder based.
      *
      * One need to list the folder to know them.
      */
@@ -328,7 +330,7 @@ class IDF_Scm_Svn extends IDF_Scm
     }
 
     /**
-     * Subversion tags are folder based. 
+     * Subversion tags are folder based.
      *
      * One need to list the folder to know them.
      */
