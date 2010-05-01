@@ -22,12 +22,18 @@
 # ***** END LICENSE BLOCK ***** */
 
 /**
- * Monotone utils.
+ * Monotone stdio class
  *
+ * Connects to a monotone process and executes commands via its
+ * stdio interface
+ *
+ * @author Thomas Keller <me@thomaskeller.biz>
  */
-
 class IDF_Scm_Monotone_Stdio
 {
+    /** this is the most recent STDIO version. The number is output
+        at the protocol start. Older versions of monotone (prior 0.47)
+        do not output it and are therefor incompatible */
     public static $SUPPORTED_STDIO_VERSION = 2;
 
     private $repo;
@@ -37,17 +43,28 @@ class IDF_Scm_Monotone_Stdio
     private $cmdnum;
     private $lastcmd;
 
+    /**
+     * Constructor - starts the stdio process
+     *
+     * @param string Repository path
+     */
     public function __construct($repo)
     {
         $this->repo = $repo;
         $this->start();
     }
 
+    /**
+     * Destructor - stops the stdio process
+     */
     public function __destruct()
     {
         $this->stop();
     }
 
+    /**
+     * Starts the stdio process and resets the command counter
+     */
     public function start()
     {
         if (is_resource($this->proc))
@@ -75,6 +92,9 @@ class IDF_Scm_Monotone_Stdio
         $this->cmdnum = -1;
     }
 
+    /**
+     * Stops the stdio process and closes all pipes
+     */
     public function stop()
     {
         if (!is_resource($this->proc))
@@ -87,6 +107,13 @@ class IDF_Scm_Monotone_Stdio
         $this->proc = null;
     }
 
+    /**
+     * select()'s on stdout and returns true as soon as we got new
+     * data to read, false if the select() timed out
+     *
+     * @return boolean
+     * @throws IDF_Scm_Exception
+     */
     private function _waitForReadyRead()
     {
         if (!is_resource($this->pipes[1]))
@@ -115,6 +142,11 @@ class IDF_Scm_Monotone_Stdio
         return true;
     }
 
+    /**
+     * Checks the version of the used stdio protocol
+     *
+     * @throws IDF_Scm_Exception
+     */
     private function _checkVersion()
     {
         $this->_waitForReadyRead();
@@ -132,7 +164,14 @@ class IDF_Scm_Monotone_Stdio
         fgets($this->pipes[1]);
     }
 
-    private function _write($args, $options = array())
+    /**
+     * Writes a command to stdio
+     *
+     * @param array
+     * @param array
+     * @throws IDF_Scm_Exception
+     */
+    private function _write(array $args, array $options = array())
     {
         $cmd = "";
         if (count($options) > 0)
@@ -168,6 +207,12 @@ class IDF_Scm_Monotone_Stdio
         $this->cmdnum++;
     }
 
+    /**
+     * Reads the last output from the stdio process, parses and returns it
+     *
+     * @return string
+     * @throws IDF_Scm_Exception
+     */
     private function _read()
     {
         $this->oob = array('w' => array(),
@@ -248,49 +293,49 @@ class IDF_Scm_Monotone_Stdio
         return $output;
     }
 
-    public function exec($args, $options = array())
+    /**
+     * Executes a command over stdio and returns its result
+     *
+     * @param array Array of arguments
+     * @param array Array of options as key-value pairs. Multiple options
+     *              can be defined in sub-arrays, like
+     *              "r" => array("123...", "456...")
+     * @return string
+     */
+    public function exec(array $args, array $options = array())
     {
         $this->_write($args, $options);
         return $this->_read();
     }
 
-    public function getLastWarnings()
+    /**
+     * Returns the last out-of-band output for a previously executed
+     * command as associative array with 'e' (error), 'w' (warning),
+     * 'p' (progress) and 't' (ticker, unparsed) as keys
+     *
+     * @return array
+     */
+    public function getLastOutOfBandOutput()
     {
-        return array_key_exists('w', $this->oob) ?
-            $this->oob['w'] : array();
-    }
-
-    public function getLastProgress()
-    {
-        return array_key_exists('p', $this->oob) ?
-            $this->oob['p'] : array();
-    }
-
-    public function getLastTickers()
-    {
-        return array_key_exists('t', $this->oob) ?
-            $this->oob['t'] : array();
-    }
-
-    public function getLastErrors()
-    {
-        return array_key_exists('e', $this->oob) ?
-            $this->oob['e'] : array();
+        return $this->oob;
     }
 }
 
+/**
+ * Monotone scm class
+ *
+ * @author Thomas Keller <me@thomaskeller.biz>
+ */
 class IDF_Scm_Monotone extends IDF_Scm
 {
+    /** the minimum supported interface version */
     public static $MIN_INTERFACE_VERSION = 12.0;
 
     private $stdio;
 
-    /* ============================================== *
-     *                                                *
-     *   Common Methods Implemented By All The SCMs   *
-     *                                                *
-     * ============================================== */
-
+    /**
+     * @see IDF_Scm::__construct()
+     */
     public function __construct($repo, $project=null)
     {
         $this->repo = $repo;
@@ -298,11 +343,17 @@ class IDF_Scm_Monotone extends IDF_Scm
         $this->stdio = new IDF_Scm_Monotone_Stdio($repo);
     }
 
+    /**
+     * @see IDF_Scm::getRepositorySize()
+     */
     public function getRepositorySize()
     {
         if (!file_exists($this->repo)) {
             return 0;
         }
+
+        // FIXME: this won't work with remote databases - upstream
+        // needs to implement mtn db info in automate at first
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').'du -sk '
             .escapeshellarg($this->repo);
         $out = explode(' ',
@@ -311,6 +362,9 @@ class IDF_Scm_Monotone extends IDF_Scm
         return (int) $out[0]*1024;
     }
 
+    /**
+     * @see IDF_Scm::isAvailable()
+     */
     public function isAvailable()
     {
         try
@@ -323,15 +377,19 @@ class IDF_Scm_Monotone extends IDF_Scm
         return false;
     }
 
+    /**
+     * @see IDF_Scm::getBranches()
+     */
     public function getBranches()
     {
         if (isset($this->cache['branches'])) {
             return $this->cache['branches'];
         }
-        // FIXME: introduce handling of suspended branches
+        // FIXME: we could / should introduce handling of suspended
+        // (i.e. dead) branches here by hiding them from the user's eye...
         $out = $this->stdio->exec(array("branches"));
 
-        // FIXME: we could expand each branch with one of its head revisions
+        // note: we could expand each branch with one of its head revisions
         // here, but these would soon become bogus anyway and we cannot
         // map multiple head revisions here either, so we just use the
         // selector as placeholder
@@ -347,14 +405,18 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     /**
      * monotone has no concept of a "main" branch, so just return
-     * the first one (the branch list is already sorted)
+     * the confiured one
      *
-     * @return string
+     * @see IDF_Scm::getMainBranch()
      */
     public function getMainBranch()
     {
-        $branches = $this->getBranches();
-        return key($branches);
+        $conf = $this->project->getConf();
+        if (false === ($branch = $conf->getVal('mtn_master_branch', false))
+            || empty($branch)) {
+            $branch = "*";
+        }
+        return $branch;
     }
 
     /**
@@ -447,6 +509,13 @@ class IDF_Scm_Monotone extends IDF_Scm
         return $stanzas;
     }
 
+    /**
+     * Queries the certs for a given revision and returns them in an
+     * associative array array("branch" => array("branch1", ...), ...)
+     *
+     * @param string
+     * @param array
+     */
     private function _getCerts($rev)
     {
         static $certCache = array();
@@ -487,6 +556,14 @@ class IDF_Scm_Monotone extends IDF_Scm
         return $certCache[$rev];
     }
 
+    /**
+     * Returns unique certificate values for the given revs and the specific
+     * cert name
+     *
+     * @param array
+     * @param string
+     * @return array
+     */
     private function _getUniqueCertValuesFor($revs, $certName)
     {
         $certValues = array();
@@ -501,6 +578,14 @@ class IDF_Scm_Monotone extends IDF_Scm
         return array_unique($certValues);
     }
 
+    /**
+     * Returns the revision in which the file has been last changed,
+     * starting from the start rev
+     *
+     * @param string
+     * @param string
+     * @return string
+     */
     private function _getLastChangeFor($file, $startrev)
     {
         $out = $this->stdio->exec(array(
@@ -510,7 +595,7 @@ class IDF_Scm_Monotone extends IDF_Scm
         $stanzas = self::_parseBasicIO($out);
 
         // FIXME: we only care about the first returned content mark
-        // everything else seem to be very rare cases
+        // everything else seem to be very, very rare cases
         foreach ($stanzas as $stanza)
         {
             foreach ($stanza as $stanzaline)
@@ -526,7 +611,7 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     /**
      * @see IDF_Scm::inBranches()
-     **/
+     */
     public function inBranches($commit, $path)
     {
         $revs = $this->_resolveSelector($commit);
@@ -536,7 +621,7 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     /**
      * @see IDF_Scm::getTags()
-     **/
+     */
     public function getTags()
     {
         if (isset($this->cache['tags']))
@@ -573,7 +658,7 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     /**
      * @see IDF_Scm::inTags()
-     **/
+     */
     public function inTags($commit, $path)
     {
         $revs = $this->_resolveSelector($commit);
@@ -648,11 +733,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     }
 
     /**
-     * Given the string describing the author from the log find the
-     * author in the database.
-     *
-     * @param string Author
-     * @return mixed Pluf_User or null
+     * @see IDF_Scm::findAuthor()
      */
     public function findAuthor($author)
     {
@@ -671,22 +752,16 @@ class IDF_Scm_Monotone extends IDF_Scm
         return null;
     }
 
-    private static function _getMasterBranch($project)
-    {
-        $conf = $project->getConf();
-        if (false === ($branch = $conf->getVal('mtn_master_branch', false))
-            || empty($branch)) {
-            $branch = "*";
-        }
-        return $branch;
-    }
-
+    /**
+     * @see IDF_Scm::getAnonymousAccessUrl()
+     */
     public static function getAnonymousAccessUrl($project, $commit = null)
     {
-        $branch = self::_getMasterBranch($project);
+        $scm = IDF_Scm::get($project);
+        $branch = $scm->getMainBranch();
+
         if (!empty($commit))
         {
-            $scm = IDF_Scm::get($project);
             $revs = $scm->_resolveSelector($commit);
             if (count($revs) > 0)
             {
@@ -722,6 +797,9 @@ class IDF_Scm_Monotone extends IDF_Scm
         )." ".$branch;
     }
 
+    /**
+     * @see IDF_Scm::getAuthAccessUrl()
+     */
     public static function getAuthAccessUrl($project, $user, $commit = null)
     {
         return self::getAnonymousAccessUrl($project, $commit);
@@ -739,6 +817,9 @@ class IDF_Scm_Monotone extends IDF_Scm
         return new IDF_Scm_Monotone($rep, $project);
     }
 
+    /**
+     * @see IDF_Scm::isValidRevision()
+     */
     public function isValidRevision($commit)
     {
         $revs = $this->_resolveSelector($commit);
@@ -746,16 +827,12 @@ class IDF_Scm_Monotone extends IDF_Scm
     }
 
     /**
-     * Get the file info.
-     *
-     * @param string File
-     * @param string Commit ('HEAD')
-     * @return false Information
+     * @see IDF_Scm::getPathInfo()
      */
     public function getPathInfo($file, $commit = null)
     {
         if ($commit === null) {
-            $commit = 'h:' . self::_getMasterBranch($this->project);
+            $commit = 'h:' . $this->getMainBranch();
         }
 
         $revs = $this->_resolveSelector($commit);
@@ -818,6 +895,9 @@ class IDF_Scm_Monotone extends IDF_Scm
         return false;
     }
 
+    /**
+     * @see IDF_Scm::getFile()
+     */
     public function getFile($def, $cmd_only=false)
     {
         // this won't work with remote databases
@@ -829,6 +909,14 @@ class IDF_Scm_Monotone extends IDF_Scm
         return $this->stdio->exec(array("get_file", $def->hash));
     }
 
+    /**
+     * Returns the differences between two revisions as unified diff
+     *
+     * @param string    The target of the diff
+     * @param string    The source of the diff, if not given, the first
+     *                  parent of the target is used
+     * @return string
+     */
     private function _getDiff($target, $source = null)
     {
         if (empty($source))
@@ -859,11 +947,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     }
 
     /**
-     * Get commit details.
-     *
-     * @param string Commit
-     * @param bool Get commit diff (false)
-     * @return array Changes
+     * @see IDF_Scm::getCommit()
      */
     public function getCommit($commit, $getdiff=false)
     {
@@ -891,16 +975,13 @@ class IDF_Scm_Monotone extends IDF_Scm
     }
 
     /**
-     * Check if a commit is big.
-     *
-     * @param string Commit ('HEAD')
-     * @return bool The commit is big
+     * @see IDF_Scm::isCommitLarge()
      */
     public function isCommitLarge($commit=null)
     {
         if (empty($commit))
         {
-            $commit = "h:"+self::_getMasterBranch($this->project);
+            $commit = "h:"+$this->getMainBranch();
         }
 
         $revs = $this->_resolveSelector($commit);
@@ -924,11 +1005,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     }
 
     /**
-     * Get latest changes.
-     *
-     * @param string Commit ('HEAD').
-     * @param int Number of changes (10).
-     * @return array Changes.
+     * @see IDF_Scm::getChangeLog()
      */
     public function getChangeLog($commit=null, $n=10)
     {
@@ -983,3 +1060,4 @@ class IDF_Scm_Monotone extends IDF_Scm
         return $logs;
     }
 }
+
