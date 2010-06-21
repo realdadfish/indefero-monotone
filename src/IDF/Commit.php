@@ -264,9 +264,38 @@ class IDF_Commit extends Pluf_Model
      */
     public function notify($conf, $create=true)
     {
+        // Now we add to the queue, soon we will push everything in
+        // the queue, including email notifications and indexing.
+        // Even if the url is empty, we add to the queue as some
+        // plugins may want to do something with this information in
+        // an asynchronous way.
+        $project = $this->get_project();
+        $scm = $project->getConf()->getVal('scm', 'git');
+        $url = str_replace(array('%p', '%r'),
+                           array($project->shortname, $this->scm_id),
+                           $conf->getVal('webhook_url', ''));
+        $payload = array('to_send' => array(
+                                            'project' => $project->shortname,
+                                            'rev' => $this->scm_id,
+                                            'scm' => $scm,
+                                            'summary' => $this->summary,
+                                            'fullmessage' => $this->fullmessage,
+                                            'author' => $this->origauthor,
+                                            'creation_date' => $this->creation_dtime,
+                                            ),
+                         'project_id' => $project->id,
+                         'authkey' => $project->getPostCommitHookKey(),
+                         'url' => $url,
+                         );
+        $item = new IDF_Queue();
+        $item->type = 'new_commit';
+        $item->payload = $payload;
+        $item->create();
+
         if ('' == $conf->getVal('source_notification_email', '')) {
             return;
         }
+
         $current_locale = Pluf_Translation::getLocale();
         $langs = Pluf::f('languages', array('en'));
         Pluf_Translation::loadSetLocale($langs[0]);        

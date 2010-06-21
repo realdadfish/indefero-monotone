@@ -366,12 +366,13 @@ class IDF_Project extends Pluf_Model
     public function getRepositorySize($force=false)
     {
         $last_eval = $this->getConf()->getVal('repository_size_check_date', 0);
-        if (!$force and $last_eval > time()-86400) {
+        if (Pluf::f('idf_no_size_check', false) or
+            (!$force and $last_eval > time()-172800)) {
             return $this->getConf()->getVal('repository_size', -1);
         }
+        $this->getConf()->setVal('repository_size_check_date', time());
         $scm = IDF_Scm::get($this);
         $this->getConf()->setVal('repository_size', $scm->getRepositorySize());
-        $this->getConf()->setVal('repository_size_check_date', time());
         return $this->getConf()->getVal('repository_size', -1);
     }
 
@@ -427,6 +428,17 @@ class IDF_Project extends Pluf_Model
         $scms = Pluf::f('allowed_scm');
         return call_user_func(array($scms[$scm], 'getAuthAccessUrl'),
                               $this, $user, $commit);
+    }
+
+    /**
+     * Get the post commit hook key.
+     *
+     * The goal is to get something predictable but from which one
+     * cannot reverse find the secret key.
+     */
+    public function getPostCommitHookKey()
+    {
+        return md5($this->id.sha1(Pluf::f('secret_key')).$this->shortname);
     }
 
     /**
@@ -623,7 +635,7 @@ class IDF_Project extends Pluf_Model
         Pluf_Signal::send('IDF_Project::preDelete',
                           'IDF_Project', $params);
         $what = array('IDF_Upload', 'IDF_Review', 'IDF_Issue',
-                      'IDF_WikiPage', 'IDF_Commit',
+                      'IDF_WikiPage', 'IDF_Commit', 'IDF_Tag',
                       );
         foreach ($what as $m) {
             foreach (Pluf::factory($m)->getList(array('filter' => 'project='.(int)$this->id)) as $item) {

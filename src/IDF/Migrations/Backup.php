@@ -51,6 +51,8 @@ function IDF_Migrations_Backup_run($folder, $name=null)
                     'IDF_Review_FileComment',
                     'IDF_Key',
                     'IDF_Scm_Cache_Git',
+                    'IDF_Queue',
+                    'IDF_Gconf',
                     );
     $db = Pluf::db();
     // Now, for each table, we dump the content in json, this is a
@@ -94,6 +96,8 @@ function IDF_Migrations_Backup_restore($folder, $name)
                     'IDF_Review_FileComment',
                     'IDF_Key',
                     'IDF_Scm_Cache_Git',
+                    'IDF_Queue',
+                    'IDF_Gconf',
                     );
     $db = Pluf::db();
     $schema = new Pluf_DB_Schema($db);
