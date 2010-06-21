@@ -78,6 +78,7 @@ class IDF_Scm_Monotone_Stdio
         $descriptors = array(
             0 => array("pipe", "r"),
             1 => array("pipe", "w"),
+            2 => array("pipe", "w"),
         );
 
         $this->proc = proc_open($cmd, $descriptors, $this->pipes);
@@ -102,6 +103,7 @@ class IDF_Scm_Monotone_Stdio
 
         fclose($this->pipes[0]);
         fclose($this->pipes[1]);
+        fclose($this->pipes[2]);
 
         proc_close($this->proc);
         $this->proc = null;
@@ -119,12 +121,9 @@ class IDF_Scm_Monotone_Stdio
         if (!is_resource($this->pipes[1]))
             return false;
 
-        $read = array($this->pipes[1]);
-        $write = null;
-        $except = null;
-
+        $read = array($this->pipes[1], $this->pipes[2]);
         $streamsChanged = stream_select(
-            $read, $write, $except, 0, 20000
+            $read, $write = null, $except = null, 0, 20000
         );
 
         if ($streamsChanged === false)
@@ -152,6 +151,14 @@ class IDF_Scm_Monotone_Stdio
         $this->_waitForReadyRead();
 
         $version = fgets($this->pipes[1]);
+        if ($version === false)
+        {
+            $err = fgets($this->pipes[2]);
+            throw new IDF_Scm_Exception(
+                "Could not determine stdio version: $err"
+            );
+        }
+
         if (!preg_match('/^format-version: (\d+)$/', $version, $m) ||
             $m[1] != self::$SUPPORTED_STDIO_VERSION)
         {
@@ -233,6 +240,14 @@ class IDF_Scm_Monotone_Stdio
             while (true)
             {
                 $c = fgetc($this->pipes[1]);
+                if ($c === false)
+                {
+                    $err = fgets($this->pipes[2]);
+                    throw new IDF_Scm_Exception(
+                        "Could not read stdio: $err"
+                   );
+                }
+
                 if ($c == ':')
                 {
                     if ($idx == 2)
