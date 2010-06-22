@@ -1,0 +1,128 @@
+monotone implementation notes
+-----------------------------
+
+1. general
+
+    This branch contains an implementation of the monotone automation interface.
+    It needs at least monotone version 0.47 (interface version 12.0) or
+    newer.  To set up a new project with monotone, all you need to do is
+    to create a new monotone database with
+
+        $ mtn db init -d project.mtn
+
+    in the configured repository path ('mtn_repositories'). To have a really
+    workable setup, this database needs an initial commit on the configured
+    master branch of the project.  This can be done easily with
+
+        $ mkdir tmp && touch tmp/remove_me
+        $ mtn import -d project.mtn -b master.branch.name \
+            -m "initial commit" tmp
+        $ rm -rf tmp
+
+
+2. current state / internals
+
+    The implementation should be fairly stable and fast, though some
+    information, such as individual file sizes or last change information,
+    won't scale well with the tree size.  Its expected that the mtn
+    automation interface improves in this area in the future and that
+    these parts can then be rewritten with speed in mind.
+
+    Another area of improvement is the access pattern to the monotone
+    database.  While only one process is started per request, the time
+    (and server resource) penalty for this could still be dramatic once
+    many clients try to access the service.  Luckily, monotone has an
+    easy way to deliver its stdio protocol for automation usage over the
+    network (mtn au remote_stdio), so the following scenarios are possible:
+
+    a) setup a single mtn server serving one database on a different
+      (faster) server and let the stdio client connect to that
+
+    b) setup usher (available from branch net.venge.monotone.contrib.usher
+       from the official mtn repository on monotone.ca) as proxy in
+       front of several local monotone databases mirroring themselves
+
+    c) like b), but use usher as proxy in front of several other remote
+       monotone databases (forwarding)
+
+    The scenario in a) might be needed anyways for a shared hosting
+    environment, because a database which gets served via netsync cannot
+    be accessed by another local process at the same time (its locked then),
+    so ideally both, the network functionality as well as the indefero
+    browsing functionality should be delivered from one single database
+    per project via netsync.
+
+    The only alternative for this setup is a two-database approach, where one
+    database acts as network node and the other as backend for indefero.
+    The synchronization between these two would then have to happen via
+    standard tools (cron...) or a sync request from one database to the other.
+
+    While the current implementation is ready for the two database approach,
+    some code parts and configuration changes have to happen for the remote
+    stdio usage.  Bascially this is replacing the initial call to
+
+        mtn -d project.mtn au stdio     (Monotone.php, around line 74)
+
+    with
+
+        mtn au remote_stdio HOSTNAME
+
+    which could be made configurable in conf/idf.php.  But again, this heavily
+    depends on the exact anticipated server setup.
+
+    To scale things up a bit, multiple projects should of course use
+    separated databases.  The main reason for that is that while read access
+    can be granted on a branch level, write access gives total write
+    possibilities on the whole database.  One approach would be to start
+    one serve process for each database, but the obvious downside here is
+    that each of those processes would need to get bound to another
+    (non-standard) port making it hard for users to "just clone" the
+    project sources without knowing the exact port.
+
+    Usher comes to the rescue here as well.  It has three ways
+    to recognize the request for a particular database:
+
+    a) by looking at the requested host name (similar to SNI for Apache)
+
+    b) by evaluating the requested branch pattern
+
+    c) by evaluating the path part from an mtn:// uri (new in mtn 0.48)
+
+    The best way is probably to configure it with c) - instead of pulling
+    a project like this
+
+      $ mtn pull hostname branchname
+
+    a user uses the URI syntax (which will, btw. be the default from
+    mtn 0.99 onwards):
+
+      $ mtn pull mtn://hostname/database?branchname
+
+    Here, the "/database" part is used by usher to determine which backend
+    database should be used for the network action.  The "clone" command
+    will also support this mtn:// uri syntax, but this didn't made it into
+    0.48, but will be available from 0.99 and later.
+
+
+3. indefero critique:
+
+    It was not always 100% clear what some of the abstract SCM API method
+    wanted in return.  While it helped a lot to have prior art in form of the
+    SVN and git implementation, the documentation of the abstract IDF_Scm
+    should probably still be improved.
+
+    Since branch and tag names can be of arbitrary size, it was not possible
+    to display them completely in the default layout.  This might be a problem
+    in other SCMs as well, in particular for the monotone implementation I
+    introduced a special filter, called "IDF_Views_Source_ShortenString".
+
+    The API methods getPathInfo() and getTree() return similar VCS "objects"
+    which unfortunately do not have a well-defined structure - this should
+    probably addressed in future indefero releases.
+
+    While the returned objects from getTree() contain all the needed
+    information, indefero doesn't seem to use them to sort the output
+    f.e. alphabetically or in such a way that directories are outputted
+    before files.  It was unclear if the SCM implementor should do this
+    task or not and what the admired default sorting should be.
+
