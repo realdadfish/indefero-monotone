@@ -420,7 +420,8 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     /**
      * monotone has no concept of a "main" branch, so just return
-     * the confiured one
+     * the configured one. Ensure however that we can select revisions
+     * with it at all.
      *
      * @see IDF_Scm::getMainBranch()
      */
@@ -431,6 +432,14 @@ class IDF_Scm_Monotone extends IDF_Scm
             || empty($branch)) {
             $branch = "*";
         }
+
+        if (count($this->_resolveSelector("h:$branch")) == 0)
+        {
+            throw new IDF_Scm_Exception(
+                "Branch $branch is empty"
+            );
+        }
+
         return $branch;
     }
 
