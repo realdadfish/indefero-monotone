@@ -75,27 +75,71 @@ $cfg['svn_remote_url'] = 'http://localhost/svn/%s';
 
 # Path to the monotone binary
 $cfg['mtn_path'] = 'mtn';
-# Same as for git, you can have multiple repositories, one for each
-# project or a single one for all the projects. Beware though that
-# if you want to setup separate write access for the projects, you
-# you have to setup different databases for each one.
+# Additional options for the started monotone process
+$cfg['mtn_opts'] = array('--no-workspace', '--norc');
 #
-# To access an mtn repository remotely you have two possibilities,
-# via ssh and monotone's own netsync protocol. Usually each repository
-# has to serve its contents in a separate process, but there exists a tool,
-# called "usher", which acts as single entry point and distributes incoming
-# requests further, based either on a particular branch pattern or configured
-# host name (similar to SNI, the Server Name Indication, of TLS).
+# You can setup monotone for use with indefero in two ways:
 #
-# A full HOWTO set this up is beyond this scope, please refer to the
-# documentation of monotone and / or ask on their mailing list / IRC channel
-# (irc.oftc.net/#monotone)
+# 1) One database for everything:
+#    Set 'mtn_repositories' below to a fixed database path, such as
+#    '/home/mtn/repositories/all_projects.mtn'
+#
+#    Pro: - easy to setup and to manage
+#    Con: - while read access can be configured per-branch,
+#           granting write access rights to a user means that
+#           he can write anything in the global database
+#         - database lock problem: the database from which
+#           indefero reads its data cannot be used to serve the
+#           contents to the users, as the serve process locks
+#           the database
+#
+# 2) One database for every project with 'usher':
+#    Set 'mtn_remote_url' below to a string which matches your setup.
+#    Again, the '%s' placeholder will be expanded to the project's
+#    short name. Note that 'mtn_remote_url' is used as internal
+#    URI (to access the data for indefero) as well as external URI
+#    (for end users) at the same time.
+#
+#    Then download and configure 'usher'
+#    (mtn clone mtn://monotone.ca?net.venge.monotone.contrib.usher)
+#    which acts as proxy in front of all single project databases.
+#    Usher's server name should be mapped to the project's short name,
+#    so you end up with something like this for every project:
+#
+#       server  "project"
+#       local   "-d" "/home/mtn/repositories/project.mtn" "*"
+#
+#    Alternatively if you assign every project a unique DNS such as
+#    'project.my-hosting.biz', you can also configure it like this:
+#
+#       host    "project.my-hosting.biz"
+#       local   "-d" "/home/mtn/repositories/project.mtn" "*"
+#
+#    Pro: - read and write access can be granted per project
+#         - no database locking issues
+#         - one public server running on the one well-known port
+#    Con: - harder to setup
+#
+# Usher can also be used to forward sync requests to remote servers,
+# please consult its README file for more information.
+#
+# monotone also allows to use SSH as transport protocol, so if you do not plan
+# to setup a netsync server as described above, then just enter a URI like
+# 'ssh://my-host.biz/home/mtn/repositories/%s.mtn' in 'mtn_remote_url'.
+#
 $cfg['mtn_repositories'] = '/home/mtn/repositories/%s.mtn';
-# The preferred URL with which people can access this service. The placeholder
-# denotes the unique project name which could be used as distinguishable SNI.
-$cfg['mtn_remote_host'] = '%s.my.host.com';
-# Possible values 'ssh' and 'netsync'
-$cfg['mtn_remote_protocol'] = 'netsync';
+$cfg['mtn_remote_url'] = 'mtn://my-host.biz/%s';
+#
+# Whether the particular database(s) are accessed locally (via automate stdio)
+# or remotely (via automate remote_stdio). 'remote' is the default for
+# netsync setups, while 'local' access should be choosed for ssh access.
+#
+# Note that you need to setup the hook 'get_remote_automate_permitted' for
+# each remotely accessible database. A full HOWTO set this up is beyond this
+# scope, please refer to the documentation of monotone and / or ask on the
+# mailing list / IRC channel (irc.oftc.net/#monotone)
+#
+$cfg['mtn_db_access'] = 'remote';
 
 # Mercurial repositories path
 #$cfg['mercurial_repositories'] = '/home/mercurial/repositories/%s';

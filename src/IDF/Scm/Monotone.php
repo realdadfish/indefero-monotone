@@ -36,7 +36,7 @@ class IDF_Scm_Monotone_Stdio
         do not output it and are therefor incompatible */
     public static $SUPPORTED_STDIO_VERSION = 2;
 
-    private $repo;
+    private $project;
     private $proc;
     private $pipes;
     private $oob;
@@ -46,11 +46,11 @@ class IDF_Scm_Monotone_Stdio
     /**
      * Constructor - starts the stdio process
      *
-     * @param string Repository path
+     * @param IDF_Project
      */
-    public function __construct($repo)
+    public function __construct(IDF_Project $project)
     {
-        $this->repo = $repo;
+        $this->project = $project;
         $this->start();
     }
 
@@ -70,10 +70,35 @@ class IDF_Scm_Monotone_Stdio
         if (is_resource($this->proc))
             $this->stop();
 
-        $cmd = Pluf::f('idf_exec_cmd_prefix', '')
-            .sprintf("%s -d %s automate stdio --no-workspace --norc",
-                         Pluf::f('mtn_path', 'mtn'),
-                         escapeshellarg($this->repo));
+        $remote_db_access = Pluf::f('mtn_db_access', 'remote') == "remote";
+
+        $cmd = Pluf::f('idf_exec_cmd_prefix', '') .
+               Pluf::f('mtn_path', 'mtn') . ' ';
+
+        $opts = Pluf::f('mtn_opts', array());
+        foreach ($opts as $opt)
+        {
+            $cmd .= sprintf('%s ', escapeshellarg($opt));
+        }
+
+        // FIXME: we might want to add an option for anonymous / no key
+        // access, but upstream bug #30237 prevents that for now
+        if ($remote_db_access)
+        {
+            $host = sprintf(Pluf::f('mtn_remote_url'), $this->project->shortname);
+            $cmd .= sprintf('automate remote_stdio %s', escapeshellarg($host));
+        }
+        else
+        {
+            $repo = sprintf(Pluf::f('mtn_repositories'), $this->project->shortname);
+            if (!file_exists($repo))
+            {
+                throw new IDF_Scm_Exception(
+                    "repository file '$repo' does not exist"
+                );
+            }
+            $cmd .= sprintf('--db %s automate stdio', escapeshellarg($repo));
+        }
 
         $descriptors = array(
             0 => array("pipe", "r"),
@@ -369,11 +394,10 @@ class IDF_Scm_Monotone extends IDF_Scm
     /**
      * @see IDF_Scm::__construct()
      */
-    public function __construct($repo, $project=null)
+    public function __construct($project)
     {
-        $this->repo = $repo;
         $this->project = $project;
-        $this->stdio = new IDF_Scm_Monotone_Stdio($repo);
+        $this->stdio = new IDF_Scm_Monotone_Stdio($project);
     }
 
     /**
@@ -381,14 +405,16 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public function getRepositorySize()
     {
-        if (!file_exists($this->repo)) {
+        // FIXME: this obviously won't work with remote databases - upstream
+        // needs to implement mtn db info in automate at first
+        $repo = sprintf(Pluf::f('mtn_repositories'), $this->project->shortname);
+        if (!file_exists($repo))
+        {
             return 0;
         }
 
-        // FIXME: this won't work with remote databases - upstream
-        // needs to implement mtn db info in automate at first
         $cmd = Pluf::f('idf_exec_cmd_prefix', '').'du -sk '
-            .escapeshellarg($this->repo);
+            .escapeshellarg($repo);
         $out = explode(' ',
                        self::shell_exec('IDF_Scm_Monotone::getRepositorySize', $cmd),
                        2);
@@ -821,22 +847,13 @@ class IDF_Scm_Monotone extends IDF_Scm
             }
         }
 
-        $protocol = Pluf::f('mtn_remote_protocol', 'netsync');
-
-        if ($protocol == "ssh")
+        $remote_url = Pluf::f('mtn_remote_url', '');
+        if (empty($remote_url))
         {
-            // ssh is protocol + host + db-path + branch
-            return "ssh://" .
-                sprintf(Pluf::f('mtn_remote_host'), $project->shortname) .
-                sprintf(Pluf::f('mtn_repositories'), $project->shortname) .
-                " " . $branch;
+            return '';
         }
 
-        // netsync is the default
-        return sprintf(
-            Pluf::f('mtn_remote_host'),
-            $project->shortname
-        )." ".$branch;
+        return sprintf($remote_url, $project->shortname)."?".$branch;
     }
 
     /**
@@ -844,7 +861,8 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public static function getAuthAccessUrl($project, $user, $commit = null)
     {
-        return self::getAnonymousAccessUrl($project, $commit);
+        $url = self::getAnonymousAccessUrl($project, $commit);
+        return preg_replace("#^ssh://#", "ssh://$user@", $url);
     }
 
     /**
@@ -855,8 +873,7 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public static function factory($project)
     {
-        $rep = sprintf(Pluf::f('mtn_repositories'), $project->shortname);
-        return new IDF_Scm_Monotone($rep, $project);
+        return new IDF_Scm_Monotone($project);
     }
 
     /**
