@@ -72,7 +72,18 @@ class IDF_Diff
                 $indiff = true;
                 continue;
             } else if (0 === strpos($line, '=========')) {
+                // by default always use the new name of a possibly renamed file
                 $current_file = self::getMtnFile($this->lines[$i+1]);
+                // mtn 0.48 and newer set /dev/null as file path for dropped files
+                // so we display the old name here
+                if ($current_file == "/dev/null") {
+                    $current_file = self::getMtnFile($this->lines[$i]);
+                }
+                if ($current_file == "/dev/null") {
+                    throw new Exception(
+                        "could not determine path from diff"
+                    );
+                }
                 $files[$current_file] = array();
                 $files[$current_file]['chunks'] = array();
                 $files[$current_file]['chunks_def'] = array();
