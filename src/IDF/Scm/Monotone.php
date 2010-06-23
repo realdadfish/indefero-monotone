@@ -81,7 +81,10 @@ class IDF_Scm_Monotone_Stdio
             2 => array("pipe", "w"),
         );
 
-        $this->proc = proc_open($cmd, $descriptors, $this->pipes);
+        $env = array("LANG" => "en_US.UTF-8");
+
+        $this->proc = proc_open($cmd, $descriptors, $this->pipes,
+                                null, $env);
 
         if (!is_resource($this->proc))
         {
@@ -153,9 +156,9 @@ class IDF_Scm_Monotone_Stdio
         $version = fgets($this->pipes[1]);
         if ($version === false)
         {
-            $err = fgets($this->pipes[2]);
             throw new IDF_Scm_Exception(
-                "Could not determine stdio version: $err"
+                "Could not determine stdio version, stderr is:\n".
+                $this->_readStderr()
             );
         }
 
@@ -215,12 +218,27 @@ class IDF_Scm_Monotone_Stdio
     }
 
     /**
+     * Reads all output from stderr and returns it
+     *
+     * @return string
+     */
+    private function _readStderr()
+    {
+        $err = "";
+        while (($line = fgets($this->pipes[2])) !== false)
+        {
+            $err .= $line;
+        }
+        return empty($err) ? "<empty>" : $err;
+    }
+
+    /**
      * Reads the last output from the stdio process, parses and returns it
      *
      * @return string
      * @throws IDF_Scm_Exception
      */
-    private function _read()
+    private function _readStdout()
     {
         $this->oob = array('w' => array(),
                            'p' => array(),
@@ -242,10 +260,10 @@ class IDF_Scm_Monotone_Stdio
                 $c = fgetc($this->pipes[1]);
                 if ($c === false)
                 {
-                    $err = fgets($this->pipes[2]);
                     throw new IDF_Scm_Exception(
-                        "Could not read stdio: $err"
-                   );
+                        "No data on stdin, stderr is:\n".
+                        $this->_readStderr()
+                    );
                 }
 
                 if ($c == ':')
@@ -320,7 +338,7 @@ class IDF_Scm_Monotone_Stdio
     public function exec(array $args, array $options = array())
     {
         $this->_write($args, $options);
-        return $this->_read();
+        return $this->_readStdout();
     }
 
     /**
