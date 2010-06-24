@@ -391,6 +391,8 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     private $stdio;
 
+    private static $instances = array();
+
     /**
      * @see IDF_Scm::__construct()
      */
@@ -873,7 +875,12 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public static function factory($project)
     {
-        return new IDF_Scm_Monotone($project);
+        if (!array_key_exists($project->shortname, self::$instances))
+        {
+            self::$instances[$project->shortname] =
+                new IDF_Scm_Monotone($project);
+        }
+        return self::$instances[$project->shortname];
     }
 
     /**
