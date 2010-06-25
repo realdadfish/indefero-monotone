@@ -167,16 +167,29 @@ class IDF_Form_Admin_ProjectCreate extends Pluf_Form
 
     public function clean_mtn_master_branch()
     {
+        // do not validate, but empty the field if a different
+        // SCM should be used
+        if ($this->cleaned_data['scm'] != 'mtn')
+            return '';
+
         $mtn_master_branch = mb_strtolower($this->cleaned_data['mtn_master_branch']);
-        if (!preg_match('/^([\w\d]+([-][\w\d]+)*)(\.[\w\d]+([-][\w\d]+)*)*$/', $mtn_master_branch)) {
-            throw new Pluf_Form_Invalid(__('This master branch contains illegal characters, please use only letters, digits, dashs and dots as separators.'));
+        if (!preg_match('/^([\w\d]+([-][\w\d]+)*)(\.[\w\d]+([-][\w\d]+)*)*$/',
+                        $mtn_master_branch)) {
+            throw new Pluf_Form_Invalid(__(
+                'The master branch is empty or contains illegal characters, '.
+                'please use only letters, digits, dashs and dots as separators.'
+            ));
         }
 
-        $sql = new Pluf_SQL('vkey=%s AND vdesc=%s', array("mtn_master_branch", $mtn_master_branch));
+        $sql = new Pluf_SQL('vkey=%s AND vdesc=%s',
+                            array("mtn_master_branch", $mtn_master_branch));
         $l = Pluf::factory('IDF_Conf')->getList(array('filter'=>$sql->gen()));
         if ($l->count() > 0) {
-            throw new Pluf_Form_Invalid(__('This master branch is already used. Please select another one.'));
+            throw new Pluf_Form_Invalid(__(
+                'This master branch is already used. Please select another one.'
+            ));
         }
+
         return $mtn_master_branch;
     }
 
