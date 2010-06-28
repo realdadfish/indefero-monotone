@@ -792,7 +792,7 @@ class IDF_Scm_Monotone extends IDF_Scm
 
                 $dates = array();
                 foreach ($certs['date'] as $date)
-                    $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
+                    $dates[] = date('Y-m-d H:i:s', strtotime($date));
                 $file['date'] = implode(', ', $dates);
                 $file['log'] = implode("\n---\n", $certs['changelog']);
             }
@@ -951,7 +951,7 @@ class IDF_Scm_Monotone extends IDF_Scm
 
                 $dates = array();
                 foreach ($certs['date'] as $date)
-                    $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
+                    $dates[] = date('Y-m-d H:i:s', strtotime($date));
                 $file['date'] = implode(', ', $dates);
                 $file['log'] = implode("\n---\n", $certs['changelog']);
             }
@@ -1028,7 +1028,7 @@ class IDF_Scm_Monotone extends IDF_Scm
 
         $dates = array();
         foreach ($certs['date'] as $date)
-            $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
+            $dates[] = date('Y-m-d H:i:s', strtotime($date));
         $res['date'] = implode(', ', $dates);
 
         $res['title'] = implode("\n---\n", $certs['changelog']);
@@ -1106,7 +1106,7 @@ class IDF_Scm_Monotone extends IDF_Scm
 
                 $dates = array();
                 foreach ($certs['date'] as $date)
-                    $dates[] = gmdate('Y-m-d H:i:s', strtotime($date));
+                    $dates[] = date('Y-m-d H:i:s', strtotime($date));
                 $log['date'] = implode(', ', $dates);
 
                 $combinedChangelog = implode("\n---\n", $certs['changelog']);
