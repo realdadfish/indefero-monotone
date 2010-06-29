@@ -628,13 +628,14 @@ class IDF_Scm_Monotone extends IDF_Scm
 
     /**
      * Returns unique certificate values for the given revs and the specific
-     * cert name
+     * cert name, optionally prefixed with $prefix
      *
      * @param array
      * @param string
+     * @param string
      * @return array
      */
-    private function _getUniqueCertValuesFor($revs, $certName)
+    private function _getUniqueCertValuesFor($revs, $certName, $prefix)
     {
         $certValues = array();
         foreach ($revs as $rev)
@@ -642,8 +643,10 @@ class IDF_Scm_Monotone extends IDF_Scm
             $certs = $this->_getCerts($rev);
             if (!array_key_exists($certName, $certs))
                 continue;
-
-            $certValues = array_merge($certValues, $certs[$certName]);
+            foreach ($certs[$certName] as $certValue)
+            {
+                $certValues[] = "$prefix$certValue";
+            }
         }
         return array_unique($certValues);
     }
@@ -686,7 +689,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     {
         $revs = $this->_resolveSelector($commit);
         if (count($revs) == 0) return array();
-        return $this->_getUniqueCertValuesFor($revs, "branch");
+        return $this->_getUniqueCertValuesFor($revs, "branch", "h:");
     }
 
     /**
@@ -716,7 +719,12 @@ class IDF_Scm_Monotone extends IDF_Scm
                 }
                 if ($stanzaline['key'] == "revision")
                 {
-                    $tags[$stanzaline['hash']] = $tagname;
+                    // FIXME: warn if multiple revisions have
+                    // equally named tags
+                    if (!array_key_exists("t:$tagname", $tags))
+                    {
+                        $tags["t:$tagname"] = $tagname;
+                    }
                     break;
                 }
             }
@@ -733,7 +741,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     {
         $revs = $this->_resolveSelector($commit);
         if (count($revs) == 0) return array();
-        return $this->_getUniqueCertValuesFor($revs, "tag");
+        return $this->_getUniqueCertValuesFor($revs, "tag", "t:");
     }
 
     /**
