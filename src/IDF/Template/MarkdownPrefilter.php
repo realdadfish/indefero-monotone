@@ -99,6 +99,7 @@ class IDF_Template_MarkdownPrefilter extends Pluf_Text_HTML_Filter
                             'caption' => array(),
                             'code' => array(),
                             'dd' => array(),
+                            'del' => array('cite', 'class', 'datetime', 'dir', 'id', 'title'),
                             'div' => array('align', 'class'),
                             'dl' => array(),
                             'dt' => array(),
@@ -112,6 +113,7 @@ class IDF_Template_MarkdownPrefilter extends Pluf_Text_HTML_Filter
                             'hr' => array(),
                             'i' => array(),
                             'img' => array('src', 'class', 'alt', 'height', 'width', 'style'),
+                            'ins' => array('cite', 'class', 'datetime', 'dir', 'id', 'title'),
                             'li' => array(),
                             'ol' => array(),
                             'p' => array('align', 'class'),
@@ -151,7 +153,9 @@ class IDF_Template_MarkdownPrefilter extends Pluf_Text_HTML_Filter
                                  'blockquote',
                                  'pre',
                                  'iframe',
-                                 'h1', 'h2', 'h3', 'address'
+                                 'h1', 'h2', 'h3', 'address',
+                                 'del',
+                                 'ins',
                                  );
     // attributes which should be checked for valid protocols
     public $protocol_attributes = array(
@@ -174,5 +178,7 @@ class IDF_Template_MarkdownPrefilter extends Pluf_Text_HTML_Filter
                                   'caption',
                                   'li',
                                   'span',
+                                  'del',
+                                  'ins',
                                   );
 }
