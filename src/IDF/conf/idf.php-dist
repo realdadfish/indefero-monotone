@@ -103,7 +103,7 @@ $cfg['mtn_opts'] = array('--no-workspace', '--norc');
 #    Then download and configure 'usher'
 #    (mtn clone mtn://monotone.ca?net.venge.monotone.contrib.usher)
 #    which acts as proxy in front of all single project databases.
-#    Usher's server name should be mapped to the project's short name,
+#    Usher's server names should be mapped to the project's short names,
 #    so you end up with something like this for every project:
 #
 #       server  "project"
@@ -137,9 +137,25 @@ $cfg['mtn_remote_url'] = 'mtn://my-host.biz/%s';
 # Note that you need to setup the hook 'get_remote_automate_permitted' for
 # each remotely accessible database. A full HOWTO set this up is beyond this
 # scope, please refer to the documentation of monotone and / or ask on the
-# mailing list / IRC channel (irc.oftc.net/#monotone)
+# mailing list (monotone-users@nongnu.org) or IRC channel
+# (irc.oftc.net/#monotone)
 #
 $cfg['mtn_db_access'] = 'remote';
+#
+# If configured, this allows basic control of a running usher process
+# via the forge administration
+#
+# 'host' and 'port' must be set to the specific bits from usher's
+# configured 'adminaddr', 'user' and 'pass' must match the values set for
+# the configured 'userpass' combination
+#
+#$cfg['mtn_usher'] = array(
+#    'host' => 'localhost',
+#    'port' => 12345,
+#    'user' => 'admin',
+#    'pass' => 'admin',
+#);
+#
 
 # Mercurial repositories path
 #$cfg['mercurial_repositories'] = '/home/mercurial/repositories/%s';

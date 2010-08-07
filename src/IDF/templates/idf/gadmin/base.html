@@ -43,18 +43,21 @@
 <div id="main-tabs">
   <a href="{url 'IDF_Views_Admin::projects'}"{block tabprojects}{/block}>{trans 'Projects'}</a>
   <a href="{url 'IDF_Views_Admin::users'}"{block tabusers}{/block}>{trans 'People'}</a>
+  {if $usherConfigured}
+  <a href="{url 'IDF_Views_Admin::usher'}"{block tabusher}{/block}>{trans 'Usher'}</a>
+  {/if}
 </div>
 <div id="sub-tabs">{block subtabs}{/block}</div>
 </div>
-	  <h1 id="title" class="title">{block title}{$page_title}{/block}</h1>
+      <h1 id="title" class="title">{block title}{$page_title}{/block}</h1>
   </div>
   <div id="bd">
-    <div id="yui-main"> 
+    <div id="yui-main">
       <div class="yui-b">
-	<div class="yui-g"> 
+    <div class="yui-g">
           {if $user and $user.id}{getmsgs $user}{/if}
-	  <div class="content">{block body}{/block}</div>
-	</div>
+      <div class="content">{block body}{/block}</div>
+    </div>
       </div>
     </div>
     <div class="yui-b context">{block context}{/block}</div>

@@ -111,6 +111,7 @@ function IDF_Middleware_ContextPreProcessor($request)
                                                  $request->project);
         $c = array_merge($c, $request->rights);
     }
+    $c['usherConfigured'] = Pluf::f("mtn_usher", null) !== null;
     return $c;
 }
 

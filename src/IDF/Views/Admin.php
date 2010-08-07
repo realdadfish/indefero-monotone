@@ -66,7 +66,7 @@ class IDF_Views_Admin
              'name' => __('Name'),
              array('id', 'IDF_Views_Admin_projectSize', __('Repository Size')),
                               );
-        $pag->configure($list_display, array(), 
+        $pag->configure($list_display, array(),
                         array('shortname'));
         $pag->extra_classes = array('', '', 'right');
         $pag->items_per_page = 25;
@@ -211,8 +211,8 @@ class IDF_Views_Admin
              array('last_login', 'Pluf_Paginator_DateYMDHM', __('Last Login')),
                               );
         $pag->extra_classes = array('', '', 'a-c', 'a-c', 'a-c', 'a-c');
-        $pag->configure($list_display, 
-                        array('login', 'last_name', 'email'), 
+        $pag->configure($list_display,
+                        array('login', 'last_name', 'email'),
                         array('login', 'last_login'));
         $pag->items_per_page = 50;
         $pag->no_results_text = __('No users were found.');
@@ -225,7 +225,7 @@ class IDF_Views_Admin
                                                      ),
                                                $request);
     }
-    
+
     /**
      * Not validated users.
      */
@@ -314,6 +314,159 @@ class IDF_Views_Admin
                                                      ),
                                                $request);
     }
+
+    /**
+     * Usher servers overview
+     *
+     */
+    public $usher_precond = array('Pluf_Precondition::staffRequired');
+    public function usher($request, $match)
+    {
+        $title = __('Usher management');
+        $servers = array();
+        foreach (IDF_Scm_Monotone_Usher::getServerList() as $server)
+        {
+            $servers[] = (object)array(
+                "name" => $server,
+                "status" => IDF_Scm_Monotone_Usher::getStatus($server),
+            );
+        }
+
+        return Pluf_Shortcuts_RenderToResponse(
+            'idf/gadmin/usher/index.html',
+            array(
+                 'page_title' => $title,
+                 'servers' => $servers,
+                 ),
+            $request
+        );
+    }
+
+    /**
+     * Usher control
+     *
+     */
+    public $usherControl_precond = array('Pluf_Precondition::staffRequired');
+    public function usherControl($request, $match)
+    {
+        $title = __('Usher control');
+        $action = $match[1];
+
+        if (!empty($action))
+        {
+            if (!in_array($action, array("reload", "shutdown", "startup")))
+            {
+                throw new Pluf_HTTP_Error404();
+            }
+
+            $msg = null;
+            if ($action == "reload")
+            {
+                IDF_Scm_Monotone_Usher::reload();
+                $msg = __('Usher configuration has been reloaded');
+            }
+            else if ($action == "shutdown")
+            {
+                IDF_Scm_Monotone_Usher::shutDown();
+                $msg = __('Usher has been shut down');
+            }
+            else
+            {
+                IDF_Scm_Monotone_Usher::startUp();
+                $msg = __('Usher has been started up');
+            }
+
+            $request->user->setMessage($msg);
+            $url = Pluf_HTTP_URL_urlForView('IDF_Views_Admin::usherControl', array(''));
+            return new Pluf_HTTP_Response_Redirect($url);
+        }
+
+        return Pluf_Shortcuts_RenderToResponse(
+            'idf/gadmin/usher/control.html',
+            array(
+                 'page_title' => $title,
+                 'status' => IDF_Scm_Monotone_Usher::getStatus(),
+                 ),
+            $request
+        );
+    }
+
+    /**
+     * Usher control
+     *
+     */
+    public $usherServerControl_precond = array('Pluf_Precondition::staffRequired');
+    public function usherServerControl($request, $match)
+    {
+        $server = $match[1];
+        if (!in_array($server, IDF_Scm_Monotone_Usher::getServerList()))
+        {
+            throw new Pluf_HTTP_Error404();
+        }
+
+        $action = $match[2];
+        if (!in_array($action, array("start", "stop", "kill")))
+        {
+            throw new Pluf_HTTP_Error404();
+        }
+
+        $msg = null;
+        if ($action == "start")
+        {
+            IDF_Scm_Monotone_Usher::startServer($server);
+            $msg = sprintf(__('The server "%s" has been started'), $server);
+        }
+        else if ($action == "stop")
+        {
+            IDF_Scm_Monotone_Usher::stopServer($server);
+            $msg = sprintf(__('The server "%s" has been stopped'), $server);
+        }
+        else
+        {
+            IDF_Scm_Monotone_Usher::killServer($server);
+            $msg = sprintf(__('The server "%s" has been killed'), $server);
+        }
+
+        $request->user->setMessage($msg);
+        $url = Pluf_HTTP_URL_urlForView('IDF_Views_Admin::usher');
+        return new Pluf_HTTP_Response_Redirect($url);
+    }
+
+    /**
+     * Open connections for a configured server
+     *
+     */
+    public $usherServerConnections_precond = array('Pluf_Precondition::staffRequired');
+    public function usherServerConnections($request, $match)
+    {
+        $server = $match[1];
+        if (!in_array($server, IDF_Scm_Monotone_Usher::getServerList()))
+        {
+            throw new Pluf_HTTP_Error404();
+        }
+
+        $title = sprintf(__('Open connections for "%s"'), $server);
+
+        $connections = IDF_Scm_Monotone_Usher::getConnectionList($server);
+        if (count($connections) == 0)
+        {
+            $request->user->setMessage(sprintf(
+               __('no connections for server "%s"'), $server
+            ));
+            $url = Pluf_HTTP_URL_urlForView('IDF_Views_Admin::usher');
+            return new Pluf_HTTP_Response_Redirect($url);
+        }
+
+        return Pluf_Shortcuts_RenderToResponse(
+            'idf/gadmin/usher/connections.html',
+            array(
+                 'page_title' => $title,
+                 'server' => $server,
+                 'connections' => $connections,
+                 ),
+            $request
+        );
+    }
 }
 
 function IDF_Views_Admin_bool($field, $item)
@@ -326,7 +479,7 @@ function IDF_Views_Admin_bool($field, $item)
 /**
  * Display the size of the project.
  *
- * @param string Field 
+ * @param string Field
  * @param IDF_Project
  * @return string
  */
@@ -406,8 +559,8 @@ function IDF_Views_Admin_getForgeDbSize()
     }
     switch (Pluf::f('db_engine')) {
     case 'PostgreSQL':
-        $sql = 'SELECT relname, pg_total_relation_size(CAST(relname AS 
-TEXT)) AS size FROM pg_class AS pgc, pg_namespace AS pgn 
+        $sql = 'SELECT relname, pg_total_relation_size(CAST(relname AS
+TEXT)) AS size FROM pg_class AS pgc, pg_namespace AS pgn
      WHERE pg_table_is_visible(pgc.oid) IS TRUE AND relkind = \'r\'
      AND pgc.relnamespace = pgn.oid
      AND pgn.nspname NOT IN (\'information_schema\', \'pg_catalog\')';

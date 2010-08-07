@@ -386,6 +386,29 @@ $ctl[] = array('regex' => '#^/admin/users/(\d+)/$#',
                'model' => 'IDF_Views_Admin',
                'method' => 'userUpdate');
 
+if (Pluf::f("mtn_usher", null) !== null)
+{
+    $ctl[] = array('regex' => '#^/admin/usher/$#',
+                   'base' => $base,
+                   'model' => 'IDF_Views_Admin',
+                   'method' => 'usher');
+
+    $ctl[] = array('regex' => '#^/admin/usher/control/(.*)$#',
+                   'base' => $base,
+                   'model' => 'IDF_Views_Admin',
+                   'method' => 'usherControl');
+
+    $ctl[] = array('regex' => '#^/admin/usher/server/(.+)/control/(.+)$#',
+                   'base' => $base,
+                   'model' => 'IDF_Views_Admin',
+                   'method' => 'usherServerControl');
+
+    $ctl[] = array('regex' => '#^/admin/usher/server/(.+)/connections/$#',
+                   'base' => $base,
+                   'model' => 'IDF_Views_Admin',
+                   'method' => 'usherServerConnections');
+}
+
 // ---------- UTILITY VIEWS -------------------------------
 
 $ctl[] = array('regex' => '#^/register/$#',
