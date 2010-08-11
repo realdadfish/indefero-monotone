@@ -134,7 +134,7 @@ class IDF_Views_User
     }
 
     /**
-     * Delete a SSH key.
+     * Delete a public key.
      *
      * This is redirecting to the preferences
      */
@@ -148,7 +148,7 @@ class IDF_Views_User
                 return new Pluf_HTTP_Response_Forbidden($request);
             }
             $key->delete();
-            $request->user->setMessage(__('The SSH key has been deleted.'));
+            $request->user->setMessage(__('The public key has been deleted.'));
         }
         return new Pluf_HTTP_Response_Redirect($url);
     }

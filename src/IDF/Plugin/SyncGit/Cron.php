@@ -48,13 +48,13 @@ class IDF_Plugin_SyncGit_Cron
         $out = '';
         $keys = Pluf::factory('IDF_Key')->getList(array('view'=>'join_user'));
         foreach ($keys as $key) {
-            if (strlen($key->content) > 40 // minimal check
+            if ($key->type == 'ssh' && strlen($key->content) > 40 // minimal check
                 and preg_match('/^[a-zA-Z][a-zA-Z0-9_.-]*(@[a-zA-Z][a-zA-Z0-9.-]*)?$/', $key->login)) {
                 $content = trim(str_replace(array("\n", "\r"), '', $key->content));
                 $out .= sprintf($template, $cmd, $key->login, $content)."\n";
             }
         }
-        file_put_contents($authorized_keys, $out, LOCK_EX);        
+        file_put_contents($authorized_keys, $out, LOCK_EX);
     }
 
     /**
