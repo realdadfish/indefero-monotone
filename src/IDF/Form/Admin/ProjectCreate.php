@@ -109,6 +109,20 @@ class IDF_Form_Admin_ProjectCreate extends Pluf_Form
                                                                     'cols' => 40),
                                             'widget' => 'Pluf_Form_Widget_TextareaInput',
                                             ));
+
+        $projects = array('--' => '--');
+        foreach (Pluf::factory('IDF_Project')->getList(array('order' => 'name ASC')) as $proj) {
+            $projects[$proj->name] = $proj->shortname;
+        }
+        $this->fields['template'] = new Pluf_Form_Field_Varchar(
+                                      array('required' => false,
+                                            'label' => __('Project template'),
+                                            'initial' => '--',
+                                            'help_text' => __('Use the given project to initialize the new project. Access rights and general configuration will be taken from the template project.'),
+                                            'widget' => 'Pluf_Form_Widget_SelectInput',
+                                            'widget_attrs' => array('choices' => $projects),
+                                            ));
+
         /**
          * [signal]
          *
@@ -229,11 +243,66 @@ class IDF_Form_Admin_ProjectCreate extends Pluf_Form
                 $this->cleaned_data[$key] : '';
             $conf->setVal($key, $this->cleaned_data[$key]);
         }
+        if ($this->cleaned_data['template'] != '--') {
+            // Find the template project
+            $sql = new Pluf_SQL('shortname=%s', 
+                                array($this->cleaned_data['template'])); 
+            $tmpl = Pluf::factory('IDF_Project')->getOne(array('filter' => $sql->gen()));
+            $tmplconf = new IDF_Conf();
+            $tmplconf->setProject($tmpl);
+            // We need to get all the configuration variables we want from
+            // the old project and put them into the new project.
+            $props = array(
+                           'labels_download_predefined',
+                           'labels_download_one_max',
+                           'labels_wiki_predefined',
+                           'labels_wiki_one_max',
+                           'labels_issue_open',
+                           'labels_issue_closed',
+                           'labels_issue_predefined',
+                           'labels_issue_one_max',
+                           'webhook_url',
+                           'downloads_access_rights',
+                           'review_access_rights',
+                           'wiki_access_rights',
+                           'source_access_rights',
+                           'issues_access_rights',
+                           'downloads_notification_email',
+                           'review_notification_email',
+                           'wiki_notification_email',
+                           'source_notification_email',
+                           'issues_notification_email',
+                           );
+            foreach ($props as $prop) {
+                $conf->setVal($prop, $tmplconf->getVal($prop));
+            }
+        }
         $project->created();
-        IDF_Form_MembersConf::updateMemberships($project, 
-                                                $this->cleaned_data);
+        if ($this->cleaned_data['template'] == '--') {
+            IDF_Form_MembersConf::updateMemberships($project, 
+                                                    $this->cleaned_data);
+        } else {
+            // Get the membership of the template $tmpl
+            IDF_Form_MembersConf::updateMemberships($project, 
+                                                    $tmpl->getMembershipData('string'));
+        }
         $project->membershipsUpdated();
         return $project;
+    }
+
+    /**
+     * Check that the template project exists.
+     */
+    public function clean_template()
+    {
+        if ($this->cleaned_data['template'] == '--') {
+            return $this->cleaned_data['template'];
+        }
+        $sql = new Pluf_SQL('shortname=%s', array($this->cleaned_data['template'])); 
+        if (Pluf::factory('IDF_Project')->getOne(array('filter' => $sql->gen())) == null) {
+            throw new Pluf_Form_Invalid(__('This project is not available.'));
+        }
+        return $this->cleaned_data['template'];
     }
 }
 

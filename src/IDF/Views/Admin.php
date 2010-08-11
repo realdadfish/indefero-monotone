@@ -118,6 +118,9 @@ class IDF_Views_Admin
     /**
      * Creation of a project.
      *
+     * A project can use another project as template. In that case,
+     * everything but the data in the input at creation time is
+     * reused, including the wiki pages.
      */
     public $projectCreate_precond = array('Pluf_Precondition::staffRequired');
     public function projectCreate($request, $match)

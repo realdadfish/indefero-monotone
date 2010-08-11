@@ -53,21 +53,28 @@
 </td>
 </tr>
 <tr>
+<th>{$form.f.template.labelTag}</th>
+<td>{if $form.f.template.errors}{$form.f.template.fieldErrors}{/if}
+{$form.f.template|unsafe}<br />
+<span class="helptext">{$form.f.template.help_text}</span>
+</td>
+</tr>
+<tr class="no-template">
 <th><strong>{$form.f.owners.labelTag}:</strong></th>
 <td>
 {if $form.f.owners.errors}{$form.f.owners.fieldErrors}{/if}
 {$form.f.owners|unsafe}<br />
-<span class="helptext">{trans 'Provide at least one owner for the project.'}</span>
+<span class="helptext">{trans 'Provide at least one owner for the project or use a template.'}</span>
 </td>
 </tr>
-<tr>
+<tr class="no-template">
 <th>{$form.f.members.labelTag}:</th>
 <td>
 {if $form.f.members.errors}{$form.f.members.fieldErrors}{/if}
 {$form.f.members|unsafe}
 </td>
 </tr>
-<tr>
+<tr class="no-template">
 <th>{if $form.f.private_project.errors}{$form.f.private_project.fieldErrors}{/if}
 {$form.f.private_project|unsafe}
 </th>
@@ -119,18 +126,19 @@ $(document).ready(function() {
             $(".svn-form").hide();
         }
     });
+    // Hide if not svn
+    if ($("#id_template option:selected").val() == "--") {
+        $(".no-template").show();
+    } else {
+        $(".no-template").hide();
+    }
+    $("#id_template").change(function () {
+        if ($("#id_template option:selected").val() == "--") {
+            $(".no-template").show();
+        } else {
+            $(".no-template").hide();
+        }
+    });
 });
 </script>
 {/literal}{/block}
-{*
-
- $("select").change(function () {
-          var str = "";
-          $("select option:selected").each(function () {
-                str += $(this).text() + " ";
-              });
-          $("div").text(str);
-        })
-        .trigger('change');
-
-*}
