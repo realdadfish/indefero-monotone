@@ -231,8 +231,18 @@ class IDF_Form_Admin_ProjectCreate extends Pluf_Form
         $project = new IDF_Project();
         $project->name = $this->cleaned_data['name'];
         $project->shortname = $this->cleaned_data['shortname'];
-        $project->private = $this->cleaned_data['private_project'];
-        $project->description = __('Click on the Project Management tab to set the description of your project.');
+
+        if ($this->cleaned_data['template'] != '--') {
+            // Find the template project
+            $sql = new Pluf_SQL('shortname=%s', 
+                                array($this->cleaned_data['template'])); 
+            $tmpl = Pluf::factory('IDF_Project')->getOne(array('filter' => $sql->gen()));
+            $project->private = $tmpl->private;
+            $project->description = $tmpl->description;
+        } else {
+            $project->private = $this->cleaned_data['private_project'];
+            $project->description = __('Click on the Project Management tab to set the description of your project.');
+        }
         $project->create();
         $conf = new IDF_Conf();
         $conf->setProject($project);
@@ -244,12 +254,6 @@ class IDF_Form_Admin_ProjectCreate extends Pluf_Form
             $conf->setVal($key, $this->cleaned_data[$key]);
         }
         if ($this->cleaned_data['template'] != '--') {
-            // Find the template project
-            $sql = new Pluf_SQL('shortname=%s', 
-                                array($this->cleaned_data['template'])); 
-            $tmpl = Pluf::factory('IDF_Project')->getOne(array('filter' => $sql->gen()));
-            $project->private = $tmpl->private;
-            $project->description = $tmpl->description;
             $tmplconf = new IDF_Conf();
             $tmplconf->setProject($tmpl);
             // We need to get all the configuration variables we want from
