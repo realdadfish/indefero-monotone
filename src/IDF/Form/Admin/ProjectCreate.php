@@ -248,6 +248,8 @@ class IDF_Form_Admin_ProjectCreate extends Pluf_Form
             $sql = new Pluf_SQL('shortname=%s', 
                                 array($this->cleaned_data['template'])); 
             $tmpl = Pluf::factory('IDF_Project')->getOne(array('filter' => $sql->gen()));
+            $project->private = $tmpl->private;
+            $project->description = $tmpl->description;
             $tmplconf = new IDF_Conf();
             $tmplconf->setProject($tmpl);
             // We need to get all the configuration variables we want from
