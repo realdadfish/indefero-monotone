@@ -255,28 +255,28 @@ class IDF_Form_Admin_ProjectCreate extends Pluf_Form
             // We need to get all the configuration variables we want from
             // the old project and put them into the new project.
             $props = array(
-                           'labels_download_predefined',
-                           'labels_download_one_max',
-                           'labels_wiki_predefined',
-                           'labels_wiki_one_max',
-                           'labels_issue_open',
-                           'labels_issue_closed',
-                           'labels_issue_predefined',
-                           'labels_issue_one_max',
-                           'webhook_url',
-                           'downloads_access_rights',
-                           'review_access_rights',
-                           'wiki_access_rights',
-                           'source_access_rights',
-                           'issues_access_rights',
-                           'downloads_notification_email',
-                           'review_notification_email',
-                           'wiki_notification_email',
-                           'source_notification_email',
-                           'issues_notification_email',
+                           'labels_download_predefined' => IDF_Form_UploadConf::init_predefined,
+                           'labels_download_one_max' => IDF_Form_UploadConf::init_one_max,
+                           'labels_wiki_predefined' => IDF_Form_WikiConf::init_predefined,
+                           'labels_wiki_one_max' => IDF_Form_WikiConf::init_one_max,
+                           'labels_issue_open' => IDF_Form_IssueTrackingConf::init_open,
+                           'labels_issue_closed' => IDF_Form_IssueTrackingConf::init_closed,
+                           'labels_issue_predefined' =>  IDF_Form_IssueTrackingConf::init_predefined,
+                           'labels_issue_one_max' => IDF_Form_IssueTrackingConf::init_one_max,
+                           'webhook_url' => '',
+                           'downloads_access_rights' => 'all',
+                           'review_access_rights' => 'all',
+                           'wiki_access_rights' => 'all',
+                           'source_access_rights' => 'all',
+                           'issues_access_rights' => 'all',
+                           'downloads_notification_email' => '',
+                           'review_notification_email' => '',
+                           'wiki_notification_email' => '',
+                           'source_notification_email' => '',
+                           'issues_notification_email' => '',
                            );
-            foreach ($props as $prop) {
-                $conf->setVal($prop, $tmplconf->getVal($prop));
+            foreach ($props as $prop => $def) {
+                $conf->setVal($prop, $tmplconf->getVal($prop, $def));
             }
         }
         $project->created();
