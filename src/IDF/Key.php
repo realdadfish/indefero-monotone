@@ -184,8 +184,7 @@ class IDF_Key extends Pluf_Model
     public static function getAvailableKeyTypes()
     {
         $key_types = array(__("SSH") => 'ssh');
-        if (array_key_exists('mtn', Pluf::f('allowed_scm', array())))
-        {
+        if (array_key_exists('mtn', Pluf::f('allowed_scm', array()))) {
             $key_types[__("monotone")] = 'mtn';
         }
         return $key_types;

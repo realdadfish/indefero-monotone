@@ -210,32 +210,27 @@ class IDF_Form_UserAccount  extends Pluf_Form
     public static function checkPublicKey($key, $type, $user=0)
     {
         $key = trim($key);
-        if (strlen($key) == 0)
-        {
+        if (strlen($key) == 0) {
             return '';
         }
 
-        if ($type == 'ssh')
-        {
+        if ($type == 'ssh') {
             $key = str_replace(array("\n", "\r"), '', $key);
-            if (!preg_match('#^ssh\-[a-z]{3}\s\S+\s\S+$#', $key))
-            {
+            if (!preg_match('#^ssh\-[a-z]{3}\s\S+\s\S+$#', $key)) {
                 throw new Pluf_Form_Invalid(
                     __('The format of the key is not valid. It must start '.
                        'with ssh-dss or ssh-rsa, a long string on a single '.
                        'line and at the end a comment.')
                 );
             }
-            if (Pluf::f('idf_strong_key_check', false))
-            {
+            if (Pluf::f('idf_strong_key_check', false)) {
                 $tmpfile = Pluf::f('tmp_folder', '/tmp').'/'.$user.'-key';
                 file_put_contents($tmpfile, $key, LOCK_EX);
                 $cmd = Pluf::f('idf_exec_cmd_prefix', '').
                     'ssh-keygen -l -f '.escapeshellarg($tmpfile).' > /dev/null 2>&1';
                 exec($cmd, $out, $return);
                 unlink($tmpfile);
-                if ($return != 0)
-                {
+                if ($return != 0) {
                     throw new Pluf_Form_Invalid(
                         __('Please check the key as it does not appears '.
                            'to be a valid key.')
@@ -243,18 +238,15 @@ class IDF_Form_UserAccount  extends Pluf_Form
                 }
             }
         }
-        else if ($type == 'mtn')
-        {
-            if (!preg_match('#^\[pubkey [^\]]+\]\s*\S+\s*\[end\]$#', $key))
-            {
+        else if ($type == 'mtn') {
+            if (!preg_match('#^\[pubkey [^\]]+\]\s*\S+\s*\[end\]$#', $key)) {
                 throw new Pluf_Form_Invalid(
                     __('The format of the key is not valid. It must start '.
                        'with [pubkey KEYNAME], contain a long string on a single '.
                        'line and end with [end] in the final third line.')
                 );
             }
-            if (Pluf::f('idf_strong_key_check', false))
-            {
+            if (Pluf::f('idf_strong_key_check', false)) {
                 // if monotone can read it, it should be valid
                 $mtn_opts = implode(' ', Pluf::f('mtn_opts', array()));
                 $cmd = Pluf::f('idf_exec_cmd_prefix', '').
@@ -264,8 +256,7 @@ class IDF_Form_UserAccount  extends Pluf_Form
                 fwrite($fp, $key);
                 $return = pclose($fp);
 
-                if ($return != 0)
-                {
+                if ($return != 0) {
                        throw new Pluf_Form_Invalid(
                         __('Please check the key as it does not appears '.
                            'to be a valid key.')
@@ -279,15 +270,12 @@ class IDF_Form_UserAccount  extends Pluf_Form
         }
 
         // If $user, then check if not the same key stored
-        if ($user)
-        {
+        if ($user) {
             $ruser = Pluf::factory('Pluf_User', $user);
-            if ($ruser->id > 0)
-            {
+            if ($ruser->id > 0) {
                 $sql = new Pluf_SQL('content=%s AND type=%s', array($key, $type));
                 $keys = Pluf::factory('IDF_Key')->getList(array('filter' => $sql->gen()));
-                if (count($keys) > 0)
-                {
+                if (count($keys) > 0) {
                     throw new Pluf_Form_Invalid(
                         __('You already have uploaded this key.')
                     );

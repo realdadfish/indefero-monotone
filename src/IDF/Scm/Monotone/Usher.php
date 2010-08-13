@@ -42,11 +42,11 @@ class IDF_Scm_Monotone_Usher
      */
     public static function getServerList($state = null)
     {
-        $conn = self::_triggerCommand("LIST $state");
-        if ($conn == "none")
+        $conn = self::_triggerCommand('LIST '.$state);
+        if ($conn == 'none')
             return array();
 
-        return preg_split("/[ ]/", $conn);
+        return preg_split('/[ ]/', $conn);
     }
 
     /**
@@ -67,19 +67,18 @@ class IDF_Scm_Monotone_Usher
      */
     public static function getConnectionList($server = null)
     {
-        $conn = self::_triggerCommand("LISTCONNECTIONS $server");
-        if ($conn == "none")
+        $conn = self::_triggerCommand('LISTCONNECTIONS '.$server);
+        if ($conn == 'none')
             return array();
 
-        $single_conns = preg_split("/[ ]/", $conn);
+        $single_conns = preg_split('/[ ]/', $conn);
         $ret = array();
-        foreach ($single_conns as $conn)
-        {
-            preg_match("/\(\w+\)([^:]):(\d+)/", $conn, $matches);
+        foreach ($single_conns as $conn) {
+            preg_match('/\(\w+\)([^:]):(\d+)/', $conn, $matches);
             $ret[$matches[1]][] = (object)array(
-                "server" => $matches[1],
-                "address" => $matches[2],
-                "port" => $matches[3],
+                'server'    => $matches[1],
+                'address'   => $matches[2],
+                'port'      => $matches[3],
             );
         }
 
@@ -96,7 +95,7 @@ class IDF_Scm_Monotone_Usher
      */
     public static function getStatus($server = null)
     {
-        return self::_triggerCommand("STATUS $server");
+        return self::_triggerCommand('STATUS '.$server);
     }
 
     /**
@@ -110,11 +109,11 @@ class IDF_Scm_Monotone_Usher
      */
     public static function matchServer($host, $pattern)
     {
-        $ret = self::_triggerCommand("MATCH $host $pattern");
-        if (preg_match("/^OK: (.+)/", $ret, $m))
+        $ret = self::_triggerCommand('MATCH '.$host.' '.$pattern);
+        if (preg_match('/^OK: (.+)/', $ret, $m))
             return $m[1];
-        preg_match("/^ERROR: (.+)/", $ret, $m);
-        throw new IDF_Scm_Exception("could not match server: ".$m[1]);
+        preg_match('/^ERROR: (.+)/', $ret, $m);
+        throw new IDF_Scm_Exception('could not match server: '.$m[1]);
     }
 
     /**
@@ -143,7 +142,7 @@ class IDF_Scm_Monotone_Usher
      */
     public static function startServer($server)
     {
-        return self::_triggerCommand("START $server");
+        return self::_triggerCommand('START '.$server);
     }
 
     /**
@@ -156,7 +155,7 @@ class IDF_Scm_Monotone_Usher
      */
     public static function killServer($server)
     {
-        return self::_triggerCommand("KILL_NOW $server") == "ok";
+        return self::_triggerCommand('KILL_NOW '.$server) == 'ok';
     }
 
     /**
@@ -166,7 +165,7 @@ class IDF_Scm_Monotone_Usher
      */
     public static function shutDown()
     {
-        return self::_triggerCommand("SHUTDOWN") == "ok";
+        return self::_triggerCommand('SHUTDOWN') == 'ok';
     }
 
     /**
@@ -176,7 +175,7 @@ class IDF_Scm_Monotone_Usher
      */
     public static function startUp()
     {
-        return self::_triggerCommand("STARTUP") == "ok";
+        return self::_triggerCommand('STARTUP') == 'ok';
     }
 
     /**
@@ -186,60 +185,53 @@ class IDF_Scm_Monotone_Usher
      */
     public static function reload()
     {
-        return self::_triggerCommand("RELOAD") == "ok";
+        return self::_triggerCommand('RELOAD') == 'ok';
     }
 
     private static function _triggerCommand($cmd)
     {
         $uc = Pluf::f('mtn_usher');
-        if (empty($uc['host']))
-        {
-            throw new IDF_Scm_Exception("usher host is empty");
+        if (empty($uc['host'])) {
+            throw new IDF_Scm_Exception('usher host is empty');
         }
         if (!preg_match('/^\d+$/', $uc['port']) ||
             $uc['port'] == 0)
         {
-            throw new IDF_Scm_Exception("usher port is invalid");
+            throw new IDF_Scm_Exception('usher port is invalid');
         }
 
-        if (empty($uc['user']))
-        {
-            throw new IDF_Scm_Exception("usher user is empty");
+        if (empty($uc['user'])) {
+            throw new IDF_Scm_Exception('usher user is empty');
         }
 
-        if (empty($uc['pass']))
-        {
-            throw new IDF_Scm_Exception("usher pass is empty");
+        if (empty($uc['pass'])) {
+            throw new IDF_Scm_Exception('usher pass is empty');
         }
 
         $sock = @fsockopen($uc['host'], $uc['port'], $errno, $errstr);
-        if (!$sock)
-        {
+        if (!$sock) {
             throw new IDF_Scm_Exception(
                 "could not connect to usher: $errstr ($errno)"
             );
         }
 
-        fwrite($sock, "USERPASS {$uc['user']} {$uc['pass']}\n");
-        if (feof($sock))
-        {
+        fwrite($sock, 'USERPASS '.$uc['user'].' '.$uc['pass'].'\n');
+        if (feof($sock)) {
             throw new IDF_Scm_Exception(
-                "usher closed the connection - probably wrong admin ".
-                "username or password"
+                'usher closed the connection - probably wrong admin '.
+                'username or password'
             );
         }
 
-        fwrite($sock, "$cmd\n");
-        $out = "";
-        while (!feof($sock))
-        {
+        fwrite($sock, $cmd.'\n');
+        $out = '';
+        while (!feof($sock)) {
             $out .= fgets($sock);
         }
         fclose($sock);
         $out = rtrim($out);
 
-        if ($out == "unknown command")
-        {
+        if ($out == 'unknown command') {
             throw new IDF_Scm_Exception("unknown command: $cmd");
         }
 

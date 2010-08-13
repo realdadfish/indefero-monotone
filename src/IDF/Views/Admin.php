@@ -324,8 +324,7 @@ class IDF_Views_Admin
     {
         $title = __('Usher management');
         $servers = array();
-        foreach (IDF_Scm_Monotone_Usher::getServerList() as $server)
-        {
+        foreach (IDF_Scm_Monotone_Usher::getServerList() as $server) {
             $servers[] = (object)array(
                 "name" => $server,
                 "status" => IDF_Scm_Monotone_Usher::getStatus($server),
@@ -352,21 +351,17 @@ class IDF_Views_Admin
         $title = __('Usher control');
         $action = $match[1];
 
-        if (!empty($action))
-        {
-            if (!in_array($action, array("reload", "shutdown", "startup")))
-            {
+        if (!empty($action)) {
+            if (!in_array($action, array('reload', 'shutdown', 'startup'))) {
                 throw new Pluf_HTTP_Error404();
             }
 
             $msg = null;
-            if ($action == "reload")
-            {
+            if ($action == 'reload') {
                 IDF_Scm_Monotone_Usher::reload();
                 $msg = __('Usher configuration has been reloaded');
             }
-            else if ($action == "shutdown")
-            {
+            else if ($action == 'shutdown') {
                 IDF_Scm_Monotone_Usher::shutDown();
                 $msg = __('Usher has been shut down');
             }
@@ -399,25 +394,21 @@ class IDF_Views_Admin
     public function usherServerControl($request, $match)
     {
         $server = $match[1];
-        if (!in_array($server, IDF_Scm_Monotone_Usher::getServerList()))
-        {
+        if (!in_array($server, IDF_Scm_Monotone_Usher::getServerList())) {
             throw new Pluf_HTTP_Error404();
         }
 
         $action = $match[2];
-        if (!in_array($action, array("start", "stop", "kill")))
-        {
+        if (!in_array($action, array('start', 'stop', 'kill'))) {
             throw new Pluf_HTTP_Error404();
         }
 
         $msg = null;
-        if ($action == "start")
-        {
+        if ($action == 'start') {
             IDF_Scm_Monotone_Usher::startServer($server);
             $msg = sprintf(__('The server "%s" has been started'), $server);
         }
-        else if ($action == "stop")
-        {
+        else if ($action == 'stop') {
             IDF_Scm_Monotone_Usher::stopServer($server);
             $msg = sprintf(__('The server "%s" has been stopped'), $server);
         }
@@ -440,16 +431,14 @@ class IDF_Views_Admin
     public function usherServerConnections($request, $match)
     {
         $server = $match[1];
-        if (!in_array($server, IDF_Scm_Monotone_Usher::getServerList()))
-        {
+        if (!in_array($server, IDF_Scm_Monotone_Usher::getServerList())) {
             throw new Pluf_HTTP_Error404();
         }
 
         $title = sprintf(__('Open connections for "%s"'), $server);
 
         $connections = IDF_Scm_Monotone_Usher::getConnectionList($server);
-        if (count($connections) == 0)
-        {
+        if (count($connections) == 0) {
             $request->user->setMessage(sprintf(
                __('no connections for server "%s"'), $server
             ));

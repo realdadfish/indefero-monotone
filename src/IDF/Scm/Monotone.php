@@ -54,8 +54,7 @@ class IDF_Scm_Monotone extends IDF_Scm
         // FIXME: this obviously won't work with remote databases - upstream
         // needs to implement mtn db info in automate at first
         $repo = sprintf(Pluf::f('mtn_repositories'), $this->project->shortname);
-        if (!file_exists($repo))
-        {
+        if (!file_exists($repo)) {
             return 0;
         }
 
@@ -74,7 +73,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     {
         try
         {
-            $out = $this->stdio->exec(array("interface_version"));
+            $out = $this->stdio->exec(array('interface_version'));
             return floatval($out) >= self::$MIN_INTERFACE_VERSION;
         }
         catch (IDF_Scm_Exception $e) {}
@@ -92,15 +91,14 @@ class IDF_Scm_Monotone extends IDF_Scm
         }
         // FIXME: we could / should introduce handling of suspended
         // (i.e. dead) branches here by hiding them from the user's eye...
-        $out = $this->stdio->exec(array("branches"));
+        $out = $this->stdio->exec(array('branches'));
 
         // note: we could expand each branch with one of its head revisions
         // here, but these would soon become bogus anyway and we cannot
         // map multiple head revisions here either, so we just use the
         // selector as placeholder
         $res = array();
-        foreach (preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY) as $b)
-        {
+        foreach (preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY) as $b) {
             $res["h:$b"] = $b;
         }
 
@@ -123,8 +121,7 @@ class IDF_Scm_Monotone extends IDF_Scm
             $branch = "*";
         }
 
-        if (count($this->_resolveSelector("h:$branch")) == 0)
-        {
+        if (count($this->_resolveSelector("h:$branch")) == 0) {
             throw new IDF_Scm_Exception(
                 "Branch $branch is empty"
             );
@@ -142,7 +139,7 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     private function _resolveSelector($selector)
     {
-        $out = $this->stdio->exec(array("select", $selector));
+        $out = $this->stdio->exec(array('select', $selector));
         return preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY);
     }
 
@@ -157,16 +154,13 @@ class IDF_Scm_Monotone extends IDF_Scm
         $pos = 0;
         $stanzas = array();
 
-        while ($pos < strlen($in))
-        {
+        while ($pos < strlen($in)) {
             $stanza = array();
-            while ($pos < strlen($in))
-            {
+            while ($pos < strlen($in)) {
                 if ($in[$pos] == "\n") break;
 
-                $stanzaLine = array("key" => "", "values" => array(), "hash" => null);
-                while ($pos < strlen($in))
-                {
+                $stanzaLine = array('key' => '', 'values' => array(), 'hash' => null);
+                while ($pos < strlen($in)) {
                     $ch = $in[$pos];
                     if ($ch == '"' || $ch == '[') break;
                     ++$pos;
@@ -174,8 +168,7 @@ class IDF_Scm_Monotone extends IDF_Scm
                     $stanzaLine['key'] .= $ch;
                 }
 
-                if ($in[$pos] == '[')
-                {
+                if ($in[$pos] == '[') {
                     ++$pos; // opening square bracket
                     $stanzaLine['hash'] = substr($in, $pos, 40);
                     $pos += 40;
@@ -184,12 +177,10 @@ class IDF_Scm_Monotone extends IDF_Scm
                 else
                 {
                     $valCount = 0;
-                    while ($in[$pos] == '"')
-                    {
+                    while ($in[$pos] == '"') {
                         ++$pos; // opening quote
-                        $stanzaLine['values'][$valCount] = "";
-                        while ($pos < strlen($in))
-                        {
+                        $stanzaLine['values'][$valCount] = '';
+                        while ($pos < strlen($in)) {
                             $ch = $in[$pos]; $pr = $in[$pos-1];
                             if ($ch == '"' && $pr != '\\') break;
                             ++$pos;
@@ -197,15 +188,13 @@ class IDF_Scm_Monotone extends IDF_Scm
                         }
                         ++$pos; // closing quote
 
-                        if ($in[$pos] == ' ')
-                        {
+                        if ($in[$pos] == ' ') {
                             ++$pos; // space
                             ++$valCount;
                         }
                     }
 
-                    for ($i = 0; $i <= $valCount; $i++)
-                    {
+                    for ($i = 0; $i <= $valCount; $i++) {
                         $stanzaLine['values'][$i] = str_replace(
                             array("\\\\", "\\\""),
                             array("\\", "\""),
@@ -234,28 +223,22 @@ class IDF_Scm_Monotone extends IDF_Scm
     {
         static $certCache = array();
 
-        if (!array_key_exists($rev, $certCache))
-        {
-            $out = $this->stdio->exec(array("certs", $rev));
+        if (!array_key_exists($rev, $certCache)) {
+            $out = $this->stdio->exec(array('certs', $rev));
 
             $stanzas = self::_parseBasicIO($out);
             $certs = array();
-            foreach ($stanzas as $stanza)
-            {
+            foreach ($stanzas as $stanza) {
                 $certname = null;
-                foreach ($stanza as $stanzaline)
-                {
+                foreach ($stanza as $stanzaline) {
                     // luckily, name always comes before value
-                    if ($stanzaline['key'] == "name")
-                    {
+                    if ($stanzaline['key'] == 'name') {
                         $certname = $stanzaline['values'][0];
                         continue;
                     }
 
-                    if ($stanzaline['key'] == "value")
-                    {
-                        if (!array_key_exists($certname, $certs))
-                        {
+                    if ($stanzaline['key'] == 'value') {
+                        if (!array_key_exists($certname, $certs)) {
                             $certs[$certname] = array();
                         }
 
@@ -282,13 +265,11 @@ class IDF_Scm_Monotone extends IDF_Scm
     private function _getUniqueCertValuesFor($revs, $certName, $prefix)
     {
         $certValues = array();
-        foreach ($revs as $rev)
-        {
+        foreach ($revs as $rev) {
             $certs = $this->_getCerts($rev);
             if (!array_key_exists($certName, $certs))
                 continue;
-            foreach ($certs[$certName] as $certValue)
-            {
+            foreach ($certs[$certName] as $certValue) {
                 $certValues[] = "$prefix$certValue";
             }
         }
@@ -306,19 +287,16 @@ class IDF_Scm_Monotone extends IDF_Scm
     private function _getLastChangeFor($file, $startrev)
     {
         $out = $this->stdio->exec(array(
-            "get_content_changed", $startrev, $file
+            'get_content_changed', $startrev, $file
         ));
 
         $stanzas = self::_parseBasicIO($out);
 
         // FIXME: we only care about the first returned content mark
         // everything else seem to be very, very rare cases
-        foreach ($stanzas as $stanza)
-        {
-            foreach ($stanza as $stanzaline)
-            {
-                if ($stanzaline['key'] == "content_mark")
-                {
+        foreach ($stanzas as $stanza) {
+            foreach ($stanza as $stanzaline) {
+                if ($stanzaline['key'] == 'content_mark') {
                     return $stanzaline['hash'];
                 }
             }
@@ -333,7 +311,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     {
         $revs = $this->_resolveSelector($commit);
         if (count($revs) == 0) return array();
-        return $this->_getUniqueCertValuesFor($revs, "branch", "h:");
+        return $this->_getUniqueCertValuesFor($revs, 'branch', 'h:');
     }
 
     /**
@@ -341,32 +319,26 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public function getTags()
     {
-        if (isset($this->cache['tags']))
-        {
+        if (isset($this->cache['tags'])) {
             return $this->cache['tags'];
         }
 
-        $out = $this->stdio->exec(array("tags"));
+        $out = $this->stdio->exec(array('tags'));
 
         $tags = array();
         $stanzas = self::_parseBasicIO($out);
-        foreach ($stanzas as $stanza)
-        {
+        foreach ($stanzas as $stanza) {
             $tagname = null;
-            foreach ($stanza as $stanzaline)
-            {
+            foreach ($stanza as $stanzaline) {
                 // revision comes directly after the tag stanza
-                if ($stanzaline['key'] == "tag")
-                {
+                if ($stanzaline['key'] == 'tag') {
                     $tagname = $stanzaline['values'][0];
                     continue;
                 }
-                if ($stanzaline['key'] == "revision")
-                {
+                if ($stanzaline['key'] == 'revision') {
                     // FIXME: warn if multiple revisions have
                     // equally named tags
-                    if (!array_key_exists("t:$tagname", $tags))
-                    {
+                    if (!array_key_exists("t:$tagname", $tags)) {
                         $tags["t:$tagname"] = $tagname;
                     }
                     break;
@@ -385,7 +357,7 @@ class IDF_Scm_Monotone extends IDF_Scm
     {
         $revs = $this->_resolveSelector($commit);
         if (count($revs) == 0) return array();
-        return $this->_getUniqueCertValuesFor($revs, "tag", "t:");
+        return $this->_getUniqueCertValuesFor($revs, 'tag', 't:');
     }
 
     /**
@@ -394,22 +366,20 @@ class IDF_Scm_Monotone extends IDF_Scm
     public function getTree($commit, $folder='/', $branch=null)
     {
         $revs = $this->_resolveSelector($commit);
-        if (count($revs) == 0)
-        {
+        if (count($revs) == 0) {
             return array();
         }
 
         $out = $this->stdio->exec(array(
-            "get_manifest_of", $revs[0]
+            'get_manifest_of', $revs[0]
         ));
 
         $files = array();
         $stanzas = self::_parseBasicIO($out);
         $folder = $folder == '/' || empty($folder) ? '' : $folder.'/';
 
-        foreach ($stanzas as $stanza)
-        {
-            if ($stanza[0]['key'] == "format_version")
+        foreach ($stanzas as $stanza) {
+            if ($stanza[0]['key'] == 'format_version')
                 continue;
 
             $path = $stanza[0]['values'][0];
@@ -421,21 +391,19 @@ class IDF_Scm_Monotone extends IDF_Scm
             $file['fullpath'] = $path;
             $file['efullpath'] = self::smartEncode($path);
 
-            if ($stanza[0]['key'] == "dir")
-            {
-                $file['type'] = "tree";
+            if ($stanza[0]['key'] == 'dir') {
+                $file['type'] = 'tree';
                 $file['size'] = 0;
             }
             else
             {
-                $file['type'] = "blob";
+                $file['type'] = 'blob';
                 $file['hash'] = $stanza[1]['hash'];
                 $file['size'] = strlen($this->getFile((object)$file));
             }
 
             $rev = $this->_getLastChangeFor($file['fullpath'], $revs[0]);
-            if ($rev !== null)
-            {
+            if ($rev !== null) {
                 $file['rev'] = $rev;
                 $certs = $this->_getCerts($rev);
 
@@ -482,17 +450,14 @@ class IDF_Scm_Monotone extends IDF_Scm
         $scm = IDF_Scm::get($project);
         $branch = $scm->getMainBranch();
 
-        if (!empty($commit))
-        {
+        if (!empty($commit)) {
             $revs = $scm->_resolveSelector($commit);
-            if (count($revs) > 0)
-            {
+            if (count($revs) > 0) {
                 $certs = $scm->_getCerts($revs[0]);
                 // for the very seldom case that a revision
                 // has no branch certificate
-                if (count($certs['branch']) == 0)
-                {
-                    $branch = "*";
+                if (count($certs['branch']) == 0) {
+                    $branch = '*';
                 }
                 else
                 {
@@ -502,12 +467,11 @@ class IDF_Scm_Monotone extends IDF_Scm
         }
 
         $remote_url = Pluf::f('mtn_remote_url', '');
-        if (empty($remote_url))
-        {
+        if (empty($remote_url)) {
             return '';
         }
 
-        return sprintf($remote_url, $project->shortname)."?".$branch;
+        return sprintf($remote_url, $project->shortname).'?'.$branch;
     }
 
     /**
@@ -527,8 +491,7 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public static function factory($project)
     {
-        if (!array_key_exists($project->shortname, self::$instances))
-        {
+        if (!array_key_exists($project->shortname, self::$instances)) {
             self::$instances[$project->shortname] =
                 new IDF_Scm_Monotone($project);
         }
@@ -558,15 +521,14 @@ class IDF_Scm_Monotone extends IDF_Scm
             return false;
 
         $out = $this->stdio->exec(array(
-            "get_manifest_of", $revs[0]
+            'get_manifest_of', $revs[0]
         ));
 
         $files = array();
         $stanzas = self::_parseBasicIO($out);
 
-        foreach ($stanzas as $stanza)
-        {
-            if ($stanza[0]['key'] == "format_version")
+        foreach ($stanzas as $stanza) {
+            if ($stanza[0]['key'] == 'format_version')
                 continue;
 
             $path = $stanza[0]['values'][0];
@@ -576,15 +538,14 @@ class IDF_Scm_Monotone extends IDF_Scm
             $file = array();
             $file['fullpath'] = $path;
 
-            if ($stanza[0]['key'] == "dir")
-            {
+            if ($stanza[0]['key'] == "dir") {
                 $file['type'] = "tree";
                 $file['hash'] = null;
                 $file['size'] = 0;
             }
             else
             {
-                $file['type'] = "blob";
+                $file['type'] = 'blob';
                 $file['hash'] = $stanza[1]['hash'];
                 $file['size'] = strlen($this->getFile((object)$file));
             }
@@ -593,8 +554,7 @@ class IDF_Scm_Monotone extends IDF_Scm
             $file['file'] = $pathinfo['basename'];
 
             $rev = $this->_getLastChangeFor($file['fullpath'], $revs[0]);
-            if ($rev !== null)
-            {
+            if ($rev !== null) {
                 $file['rev'] = $rev;
                 $certs = $this->_getCerts($rev);
 
@@ -619,12 +579,11 @@ class IDF_Scm_Monotone extends IDF_Scm
     public function getFile($def, $cmd_only=false)
     {
         // this won't work with remote databases
-        if ($cmd_only)
-        {
+        if ($cmd_only) {
             throw new Pluf_Exception_NotImplemented();
         }
 
-        return $this->stdio->exec(array("get_file", $def->hash));
+        return $this->stdio->exec(array('get_file', $def->hash));
     }
 
     /**
@@ -637,8 +596,7 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     private function _getDiff($target, $source = null)
     {
-        if (empty($source))
-        {
+        if (empty($source)) {
             $source = "p:$target";
         }
 
@@ -647,20 +605,18 @@ class IDF_Scm_Monotone extends IDF_Scm
         $targets = $this->_resolveSelector($target);
         $sources = $this->_resolveSelector($source);
 
-        if (count($targets) == 0 || count($sources) == 0)
-        {
-            return "";
+        if (count($targets) == 0 || count($sources) == 0) {
+            return '';
         }
 
         // if target contains a root revision, we cannot produce a diff
-        if (empty($sources[0]))
-        {
-            return "";
+        if (empty($sources[0])) {
+            return '';
         }
 
         return $this->stdio->exec(
-            array("content_diff"),
-            array("r" => array($sources[0], $targets[0]))
+            array('content_diff'),
+            array('r' => array($sources[0], $targets[0]))
         );
     }
 
@@ -676,7 +632,7 @@ class IDF_Scm_Monotone extends IDF_Scm
         $certs = $this->_getCerts($revs[0]);
 
         // FIXME: this assumes that author, date and changelog are always given
-        $res['author'] = implode(", ", $certs['author']);
+        $res['author'] = implode(', ', $certs['author']);
 
         $dates = array();
         foreach ($certs['date'] as $date)
@@ -697,9 +653,8 @@ class IDF_Scm_Monotone extends IDF_Scm
      */
     public function isCommitLarge($commit=null)
     {
-        if (empty($commit))
-        {
-            $commit = "h:"+$this->getMainBranch();
+        if (empty($commit)) {
+            $commit = 'h:'.$this->getMainBranch();
         }
 
         $revs = $this->_resolveSelector($commit);
@@ -707,15 +662,14 @@ class IDF_Scm_Monotone extends IDF_Scm
             return false;
 
         $out = $this->stdio->exec(array(
-            "get_revision", $revs[0]
+            'get_revision', $revs[0]
         ));
 
         $newAndPatchedFiles = 0;
         $stanzas = self::_parseBasicIO($out);
 
-        foreach ($stanzas as $stanza)
-        {
-            if ($stanza[0]['key'] == "patch" || $stanza[0]['key'] == "add_file")
+        foreach ($stanzas as $stanza) {
+            if ($stanza[0]['key'] == 'patch' || $stanza[0]['key'] == 'add_file')
                 $newAndPatchedFiles++;
         }
 
@@ -731,11 +685,9 @@ class IDF_Scm_Monotone extends IDF_Scm
         $initialBranches = array();
         $logs = array();
 
-        while (!empty($horizont) && $n > 0)
-        {
-            if (count($horizont) > 1)
-            {
-                $out = $this->stdio->exec(array("toposort") + $horizont);
+        while (!empty($horizont) && $n > 0) {
+            if (count($horizont) > 1) {
+                $out = $this->stdio->exec(array('toposort') + $horizont);
                 $horizont = preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY);
             }
 
@@ -743,14 +695,12 @@ class IDF_Scm_Monotone extends IDF_Scm
             $certs = $this->_getCerts($rev);
 
             // read in the initial branches we should follow
-            if (count($initialBranches) == 0)
-            {
+            if (count($initialBranches) == 0) {
                 $initialBranches = $certs['branch'];
             }
 
             // only add it to our log if it is on one of the initial branches
-            if (count(array_intersect($initialBranches, $certs['branch'])) > 0)
-            {
+            if (count(array_intersect($initialBranches, $certs['branch'])) > 0) {
                 --$n;
 
                 $log = array();
@@ -771,7 +721,7 @@ class IDF_Scm_Monotone extends IDF_Scm
                 $logs[] = (object)$log;
             }
 
-            $out = $this->stdio->exec(array("parents", $rev));
+            $out = $this->stdio->exec(array('parents', $rev));
             $horizont += preg_split("/\n/", $out, -1, PREG_SPLIT_NO_EMPTY);
         }
 
