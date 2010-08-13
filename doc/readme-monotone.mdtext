@@ -1,0 +1,63 @@
+# monotone implementation notes
+
+## general
+
+    This version of indefero contains an implementation of the monotone 
+    automation interface. It needs at least monotone version 0.47 
+    (interface version 12.0) or newer, but as development continues, its
+    likely that this dependency has to be raised.
+    
+    To set up a new IDF project with monotone quickly, all you need to do
+    is to create a new monotone database with
+
+        $ mtn db init -d project.mtn
+
+    in the configured repository path `$cfg['mtn_repositories']` and
+    configure `$cfg['mtn_db_access']` to "local".
+
+    To have a really workable setup, this database needs an initial commit
+    on the configured master branch of the project.  This can be done easily
+    with
+
+        $ mkdir tmp && touch tmp/remove_me
+        $ mtn import -d project.mtn -b master.branch.name \
+            -m "initial commit" tmp
+        $ rm -rf tmp
+
+    Its expected that more scripts arrive soon to automate this and other
+    tasks in the future for (multi)forge setups.
+
+## current state / internals
+
+    The implementation should be fairly stable and fast, though some
+    information, such as individual file sizes or last change information,
+    won't scale well with the tree size.  Its expected that the mtn
+    automation interface improves in this area in the future and that
+    these parts can then be rewritten with speed in mind.
+
+    As the idf.conf-dist explains more in detail, different access patterns
+    are possible to retrieve changeset data from monotone. Please refer
+    to the documentation there for more information.
+
+## indefero critique:
+
+    It was not always 100% clear what some of the abstract SCM API method
+    wanted in return.  While it helped a lot to have prior art in form of the
+    SVN and git implementation, the documentation of the abstract IDF_Scm
+    should probably still be improved.
+
+    Since branch and tag names can be of arbitrary size, it was not possible
+    to display them completely in the default layout.  This might be a problem
+    in other SCMs as well, in particular for the monotone implementation I
+    introduced a special filter, called "IDF_Views_Source_ShortenString".
+
+    The API methods getPathInfo() and getTree() return similar VCS "objects"
+    which unfortunately do not have a well-defined structure - this should
+    probably addressed in future indefero releases.
+
+    While the returned objects from getTree() contain all the needed
+    information, indefero doesn't seem to use them to sort the output
+    f.e. alphabetically or in such a way that directories are outputted
+    before files.  It was unclear if the SCM implementor should do this
+    task or not and what the admired default sorting should be.
+
