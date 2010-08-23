@@ -27,7 +27,7 @@
 
 function IDF_Migrations_16KeyType_up($params=null)
 {
-    $table = Pluf::factory('IDF_Keys')->getSqlTable();
+    $table = Pluf::factory('IDF_Key')->getSqlTable();
     $sql = array();
     $sql['PostgreSQL'] = 'ALTER TABLE '.$table.' ADD COLUMN "type" VARCHAR(3) DEFAULT \'ssh\'';
     $sql['MySQL'] = 'ALTER TABLE '.$table.' ADD COLUMN `type` VARCHAR(3) DEFAULT \'ssh\'';
@@ -41,7 +41,7 @@ function IDF_Migrations_16KeyType_up($params=null)
 
 function IDF_Migrations_16KeyType_down($params=null)
 {
-    $table = Pluf::factory('IDF_Keys')->getSqlTable();
+    $table = Pluf::factory('IDF_Key')->getSqlTable();
     $sql = array();
     $sql['PostgreSQL'] = 'ALTER TABLE '.$table.' DROP COLUMN "type"';
     $sql['MySQL'] = 'ALTER TABLE '.$table.' DROP COLUMN `type`';
