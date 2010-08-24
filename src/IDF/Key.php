@@ -54,13 +54,6 @@ class IDF_Key extends Pluf_Model
                                   'blank' => false,
                                   'verbose' => __('public key'),
                                   ),
-                            'type' =>
-                            array(
-                                  'type' => 'Pluf_DB_Field_Varchar',
-                                  'size' => 3,
-                                  'blank' => false,
-                                  'verbose' => __('key type'),
-                                  ),
                             );
         // WARNING: Not using getSqlTable on the Pluf_User object to
         // avoid recursion.
@@ -82,27 +75,37 @@ class IDF_Key extends Pluf_Model
         return Pluf_Template::markSafe(Pluf_esc(substr($this->content, 0, 25)).' [...] '.Pluf_esc(substr($this->content, -55)));
     }
 
-    private function parseMonotoneKeyData()
+    private function parseContent()
     {
-        if ($this->type != "mtn")
-            throw new IDF_Exception("key is not a monotone key type");
+        if (preg_match('#^\[pubkey ([^\]]+)\]\s*(\S+)\s*\[end\]$#', $this->content, $m)) {
+            return array('mtn', $m[1], $m[2]);
+        }
+        else if (preg_match('#^ssh\-[a-z]{3}\s(\S+)\s(\S+)$#', $this->content, $m)) {
+            return array('ssh', $m[2], $m[1]);
+        }
 
-        preg_match("#^\[pubkey ([^\]]+)\]\s*(\S+)\s*\[end\]$#", $this->content, $m);
-        if (count($m) != 3)
-            throw new IDF_Exception("invalid key data detected");
-
-        return array($m[1], $m[2]);
+        throw new IDF_Exception('invalid or unknown key data detected');
     }
 
     /**
-     * Returns the key name of the key, i.e. most of the time the email
-     * address, which not neccessarily has to be unique across a project.
+     * Returns the type of the public key
+     *
+     * @return string 'ssh' or 'mtn'
+     */
+    function getType()
+    {
+        list($type, , ) = $this->parseContent();
+        return $type;
+    }
+
+    /**
+     * Returns the key name of the key
      *
      * @return string
      */
-    function getMonotoneKeyName()
+    function getName()
     {
-        list($keyName, ) = $this->parseMonotoneKeyData();
+        list(, $keyName, ) = $this->parseContent();
         return $keyName;
     }
 
@@ -116,9 +119,11 @@ class IDF_Key extends Pluf_Model
      *
      * @return string
      */
-    function getMonotoneKeyId()
+    function getMtnId()
     {
-        list($keyName, $keyData) = $this->parseMonotoneKeyData();
+        list($type, $keyName, $keyData) = $this->parseContent();
+        if ($type != 'mtn')
+            throw new IDF_Exception('key is not a monotone public key');
         return sha1($keyName.":".$keyData);
     }
 
@@ -173,20 +178,5 @@ class IDF_Key extends Pluf_Model
         $params = array('key' => $this);
         Pluf_Signal::send('IDF_Key::preDelete',
                           'IDF_Key', $params);
-    }
-
-    /**
-     * Returns an associative array with available key types for this
-     * idf installation, ready for consumption for a <select> widget
-     *
-     * @return array
-     */
-    public static function getAvailableKeyTypes()
-    {
-        $key_types = array(__("SSH") => 'ssh');
-        if (array_key_exists('mtn', Pluf::f('allowed_scm', array()))) {
-            $key_types[__("monotone")] = 'mtn';
-        }
-        return $key_types;
     }
 }

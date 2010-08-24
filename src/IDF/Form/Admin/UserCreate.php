@@ -89,16 +89,8 @@ class IDF_Form_Admin_UserCreate extends Pluf_Form
                                             'widget_attrs' => array('rows' => 3,
                                                                     'cols' => 40),
                                             'widget' => 'Pluf_Form_Widget_TextareaInput',
-                                            'help_text' => __('Be careful to provide the public key and not the private key!')
+                                            'help_text' => __('Paste a SSH or monotone public key. Be careful to not provide your private key here!')
                                             ));
-        $this->fields['public_key_type'] = new Pluf_Form_Field_Varchar(
-                                   array('required' => true,
-                                         'label' => __('Key type'),
-                                         'initial' => 'ssh',
-                                         'widget_attrs' => array('choices' => IDF_Key::getAvailableKeyTypes()),
-                                         'widget' => 'Pluf_Form_Widget_SelectInput',
-                                         ));
-
     }
 
     /**
@@ -143,12 +135,11 @@ class IDF_Form_Admin_UserCreate extends Pluf_Form
         $params = array('user' => $user);
         Pluf_Signal::send('Pluf_User::passwordUpdated',
                           'IDF_Form_Admin_UserCreate', $params);
-        // Create the ssh key as needed
+        // Create the public key as needed
         if ('' !== $this->cleaned_data['public_key']) {
             $key = new IDF_Key();
             $key->user = $user;
             $key->content = $this->cleaned_data['public_key'];
-            $key->type = $this->cleaned_data['public_key_type'];
             $key->create();
         }
         // Send an email to the user with the password
@@ -214,15 +205,11 @@ class IDF_Form_Admin_UserCreate extends Pluf_Form
         return $this->cleaned_data['login'];
     }
 
-    /**
-     * Checks whether any given public key is valid
-     */
-    public function clean()
+    public function clean_public_key()
     {
         $this->cleaned_data['public_key'] =
-            IDF_Form_UserAccount::checkPublicKey($this->cleaned_data['public_key'],
-                                                 $this->cleaned_data['public_key_type']);
+            IDF_Form_UserAccount::checkPublicKey($this->cleaned_data['public_key']);
 
-        return $this->cleaned_data;
+        return $this->cleaned_data['public_key'];
     }
 }

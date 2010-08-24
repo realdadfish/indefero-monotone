@@ -57,11 +57,7 @@
 <th>{$form.f.public_key.labelTag}:</th>
 <td>{if $form.f.public_key.errors}{$form.f.public_key.fieldErrors}{/if}
 {$form.f.public_key|unsafe}<br />
-{$form.f.public_key_type.labelTag} {$form.f.public_key_type|unsafe}<br />
-<span class="helptext">
-    {$form.f.public_key.help_text}
-    {$form.f.public_key_type.help_text}
-</span>
+<span class="helptext">{$form.f.public_key.help_text}</span>
 </td>
 </tr>
 <tr class="pass-info" id="extra-password">
