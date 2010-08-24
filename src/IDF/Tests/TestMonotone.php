@@ -55,13 +55,11 @@ class IDF_Tests_TestMonotone extends UnitTestCase
                              $pipes,
                              $dir);
 
-        if (!is_resource($process))
-        {
+        if (!is_resource($process)) {
             throw new Exception("could not create process");
         }
 
-        if (!empty($stdin))
-        {
+        if (!empty($stdin)) {
             fwrite($pipes[0], $stdin);
             fclose($pipes[0]);
         }
@@ -70,8 +68,7 @@ class IDF_Tests_TestMonotone extends UnitTestCase
         fclose($pipes[1]);
 
         $ret = proc_close($process);
-        if ($ret != 0)
-        {
+        if ($ret != 0) {
             throw new Exception(
                 "call ended with a non-zero error code (complete cmdline was: ".
                 implode(" ", $cmdline).")"
@@ -102,12 +99,9 @@ class IDF_Tests_TestMonotone extends UnitTestCase
         if (is_dir($dirname))
             $dir_handle=opendir($dirname);
 
-        while ($file = readdir($dir_handle))
-        {
-            if ($file!="." && $file!="..")
-            {
-                if (!is_dir($dirname."/".$file))
-                {
+        while ($file = readdir($dir_handle)) {
+            if ($file!="." && $file!="..") {
+                if (!is_dir($dirname."/".$file)) {
                     unlink ($dirname."/".$file);
                     continue;
                 }
@@ -123,8 +117,7 @@ class IDF_Tests_TestMonotone extends UnitTestCase
 
     public function setUp()
     {
-        if (is_dir($this->tmpdir))
-        {
+        if (is_dir($this->tmpdir)) {
             self::deleteRecursive($this->tmpdir);
         }
 

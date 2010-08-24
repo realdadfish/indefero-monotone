@@ -70,29 +70,26 @@ class IDF_Scm_Monotone_Stdio
         if (is_resource($this->proc))
             $this->stop();
 
-        $remote_db_access = Pluf::f('mtn_db_access', 'remote') == "remote";
+        $remote_db_access = Pluf::f('mtn_db_access', 'remote') == 'remote';
 
         $cmd = Pluf::f('idf_exec_cmd_prefix', '') .
                Pluf::f('mtn_path', 'mtn') . ' ';
 
         $opts = Pluf::f('mtn_opts', array());
-        foreach ($opts as $opt)
-        {
+        foreach ($opts as $opt) {
             $cmd .= sprintf('%s ', escapeshellarg($opt));
         }
 
         // FIXME: we might want to add an option for anonymous / no key
         // access, but upstream bug #30237 prevents that for now
-        if ($remote_db_access)
-        {
+        if ($remote_db_access) {
             $host = sprintf(Pluf::f('mtn_remote_url'), $this->project->shortname);
             $cmd .= sprintf('automate remote_stdio %s', escapeshellarg($host));
         }
         else
         {
             $repo = sprintf(Pluf::f('mtn_repositories'), $this->project->shortname);
-            if (!file_exists($repo))
-            {
+            if (!file_exists($repo)) {
                 throw new IDF_Scm_Exception(
                     "repository file '$repo' does not exist"
                 );
@@ -101,19 +98,18 @@ class IDF_Scm_Monotone_Stdio
         }
 
         $descriptors = array(
-            0 => array("pipe", "r"),
-            1 => array("pipe", "w"),
-            2 => array("pipe", "w"),
+            0 => array('pipe', 'r'),
+            1 => array('pipe', 'w'),
+            2 => array('pipe', 'w'),
         );
 
-        $env = array("LANG" => "en_US.UTF-8");
+        $env = array('LANG' => 'en_US.UTF-8');
 
         $this->proc = proc_open($cmd, $descriptors, $this->pipes,
                                 null, $env);
 
-        if (!is_resource($this->proc))
-        {
-            throw new IDF_Scm_Exception("could not start stdio process");
+        if (!is_resource($this->proc)) {
+            throw new IDF_Scm_Exception('could not start stdio process');
         }
 
         $this->_checkVersion();
@@ -154,15 +150,13 @@ class IDF_Scm_Monotone_Stdio
             $read, $write = null, $except = null, 0, 20000
         );
 
-        if ($streamsChanged === false)
-        {
+        if ($streamsChanged === false) {
             throw new IDF_Scm_Exception(
-                "Could not select() on read pipe"
+                'Could not select() on read pipe'
             );
         }
 
-        if ($streamsChanged == 0)
-        {
+        if ($streamsChanged == 0) {
             return false;
         }
 
@@ -179,8 +173,7 @@ class IDF_Scm_Monotone_Stdio
         $this->_waitForReadyRead();
 
         $version = fgets($this->pipes[1]);
-        if ($version === false)
-        {
+        if ($version === false) {
             throw new IDF_Scm_Exception(
                 "Could not determine stdio version, stderr is:\n".
                 $this->_readStderr()
@@ -191,8 +184,8 @@ class IDF_Scm_Monotone_Stdio
             $m[1] != self::$SUPPORTED_STDIO_VERSION)
         {
             throw new IDF_Scm_Exception(
-                "stdio format version mismatch, expected '".
-                self::$SUPPORTED_STDIO_VERSION."', got '".@$m[1]."'"
+                'stdio format version mismatch, expected "'.
+                self::$SUPPORTED_STDIO_VERSION.'", got "'.@$m[1].'"'
             );
         }
 
@@ -208,33 +201,28 @@ class IDF_Scm_Monotone_Stdio
      */
     private function _write(array $args, array $options = array())
     {
-        $cmd = "";
-        if (count($options) > 0)
-        {
-            $cmd = "o";
-            foreach ($options as $k => $vals)
-            {
+        $cmd = '';
+        if (count($options) > 0) {
+            $cmd = 'o';
+            foreach ($options as $k => $vals) {
                 if (!is_array($vals))
                     $vals = array($vals);
 
-                foreach ($vals as $v)
-                {
-                    $cmd .= strlen((string)$k) . ":" . (string)$k;
-                    $cmd .= strlen((string)$v) . ":" . (string)$v;
+                foreach ($vals as $v) {
+                    $cmd .= strlen((string)$k) . ':' . (string)$k;
+                    $cmd .= strlen((string)$v) . ':' . (string)$v;
                 }
             }
-            $cmd .= "e ";
+            $cmd .= 'e ';
         }
 
-        $cmd .= "l";
-        foreach ($args as $arg)
-        {
-            $cmd .= strlen((string)$arg) . ":" . (string)$arg;
+        $cmd .= 'l';
+        foreach ($args as $arg) {
+            $cmd .= strlen((string)$arg) . ':' . (string)$arg;
         }
         $cmd .= "e\n";
 
-        if (!fwrite($this->pipes[0], $cmd))
-        {
+        if (!fwrite($this->pipes[0], $cmd)) {
             throw new IDF_Scm_Exception("could not write '$cmd' to process");
         }
 
@@ -250,11 +238,10 @@ class IDF_Scm_Monotone_Stdio
     private function _readStderr()
     {
         $err = "";
-        while (($line = fgets($this->pipes[2])) !== false)
-        {
+        while (($line = fgets($this->pipes[2])) !== false) {
             $err .= $line;
         }
-        return empty($err) ? "<empty>" : $err;
+        return empty($err) ? '<empty>' : $err;
     }
 
     /**
@@ -273,26 +260,22 @@ class IDF_Scm_Monotone_Stdio
         $output = "";
         $errcode = 0;
 
-        while (true)
-        {
+        while (true) {
             if (!$this->_waitForReadyRead())
                 continue;
 
             $data = array(0,"",0);
             $idx = 0;
-            while (true)
-            {
+            while (true) {
                 $c = fgetc($this->pipes[1]);
-                if ($c === false)
-                {
+                if ($c === false) {
                     throw new IDF_Scm_Exception(
                         "No data on stdin, stderr is:\n".
                         $this->_readStderr()
                     );
                 }
 
-                if ($c == ':')
-                {
+                if ($c == ':') {
                     if ($idx == 2)
                         break;
 
@@ -307,24 +290,21 @@ class IDF_Scm_Monotone_Stdio
             }
 
             // sanity
-            if ($this->cmdnum != $data[0])
-            {
+            if ($this->cmdnum != $data[0]) {
                 throw new IDF_Scm_Exception(
-                    "command numbers out of sync; ".
-                    "expected {$this->cmdnum}, got {$data[0]}"
+                    'command numbers out of sync; expected '.
+                    $this->cmdnum .', got '. $data[0]
                 );
             }
 
             $toRead = $data[2];
             $buffer = "";
-            while ($toRead > 0)
-            {
+            while ($toRead > 0) {
                 $buffer .= fread($this->pipes[1], $toRead);
                 $toRead = $data[2] - strlen($buffer);
             }
 
-            switch ($data[1])
-            {
+            switch ($data[1]) {
                 case 'w':
                 case 'p':
                 case 't':
@@ -340,11 +320,10 @@ class IDF_Scm_Monotone_Stdio
             }
         }
 
-        if ($errcode != 0)
-        {
+        if ($errcode != 0) {
             throw new IDF_Scm_Exception(
                 "command '{$this->lastcmd}' returned error code $errcode: ".
-                implode(" ", $this->oob['e'])
+                implode(' ', $this->oob['e'])
             );
         }
 
